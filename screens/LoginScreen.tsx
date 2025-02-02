@@ -1,0 +1,133 @@
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    StyleSheet,
+    Alert,
+    ActivityIndicator,
+    ScrollView,
+    KeyboardAvoidingView,
+    Platform
+} from 'react-native';
+// @ts-ignore
+import Icon from 'react-native-vector-icons/FontAwesome5';
+import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import userPool from '../cognitoConfig';
+
+const LoginScreen = ({ navigation }: any) => {
+    const [mobileNumber, setMobileNumber] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    const handleLogin = () => {
+        if (mobileNumber.length !== 10) {
+            Alert.alert('Error', 'Please enter a valid 10-digit mobile number');
+            return;
+        }
+        if (!password.trim()) {
+            Alert.alert('Error', 'Password cannot be empty');
+            return;
+        }
+
+        setLoading(true);
+
+        const authenticationDetails = new AuthenticationDetails({
+            Username: `+91${mobileNumber}`,
+            Password: password,
+        });
+
+        const user = new CognitoUser({
+            Username: `+91${mobileNumber}`,
+            Pool: userPool,
+        });
+
+        user.authenticateUser(authenticationDetails, {
+            onSuccess: async (result) => {
+                setLoading(false);
+
+                // Get the JWT token from the result
+                const token = result.getIdToken().getJwtToken();
+
+                // Store the token in AsyncStorage
+                await AsyncStorage.setItem('authToken', token);
+
+                // Navigate to Home screen
+                navigation.replace('Home', { phoneNumber: `+91${mobileNumber}` });
+            },
+            onFailure: (err) => {
+                setLoading(false);
+                Alert.alert('Error', err.message || 'Login failed');
+            },
+            newPasswordRequired: () => {
+                setLoading(false);
+                Alert.alert('Password Change Required', 'You need to set a new password.');
+            },
+        });
+    };
+
+    return (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+                <Text style={styles.title}>JewelPro</Text>
+
+                {/* Mobile Number Field */}
+                <Text style={styles.label}>Mobile Number</Text>
+                <View style={styles.inputContainer}>
+                    <Text style={styles.prefix}>+91</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Enter Mobile Number"
+                        keyboardType="number-pad"
+                        maxLength={10}
+                        value={mobileNumber}
+                        onChangeText={setMobileNumber}
+                    />
+                </View>
+
+                {/* Password Field */}
+                <Text style={styles.label}>Password</Text>
+                <View style={styles.passwordContainer}>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Enter Password"
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                    />
+                    <TouchableOpacity style={styles.showPasswordButton} onPress={() => setShowPassword(!showPassword)}>
+                        <Icon name={showPassword ? 'eye' : 'eye-slash'} size={20} color="#333" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Login Button */}
+                <TouchableOpacity
+                    style={[styles.loginButton, (mobileNumber.length !== 10 || !password.trim()) && styles.disabledButton]}
+                    onPress={handleLogin}
+                    disabled={mobileNumber.length !== 10 || !password.trim() || loading}
+                >
+                    {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.loginButtonText}>LOGIN</Text>}
+                </TouchableOpacity>
+            </ScrollView>
+        </KeyboardAvoidingView>
+    );
+};
+
+const styles = StyleSheet.create({
+    container: { flexGrow: 1, backgroundColor: '#f9f9f9', paddingHorizontal: 20, paddingTop: 200, paddingBottom: 30 },
+    title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', color: '#075E54', marginBottom: 30 },
+    label: { color: '#333', fontSize: 14, marginBottom: 5 },
+    inputContainer: { flexDirection: 'row', alignItems: 'center', borderColor: '#ccc', borderWidth: 1, borderRadius: 8, backgroundColor: '#fff', marginBottom: 15, paddingHorizontal: 10, height: 45 },
+    prefix: { fontSize: 16, color: '#333', marginRight: 5 },
+    input: { flex: 1, fontSize: 16, height: 45, paddingVertical: 0, paddingHorizontal: 10 },
+    passwordContainer: { flexDirection: 'row', alignItems: 'center', borderColor: '#ccc', borderWidth: 1, borderRadius: 8, backgroundColor: '#fff', marginBottom: 15 },
+    showPasswordButton: { paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center', height: 45 },
+    loginButton: { backgroundColor: '#075E54', padding: 15, borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+    disabledButton: { backgroundColor: '#aaa' },
+    loginButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+});
+
+export default LoginScreen;
