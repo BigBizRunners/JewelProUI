@@ -1,28 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { View, FlatList, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import {View, FlatList, StyleSheet, Dimensions, ActivityIndicator, Alert} from 'react-native';
 import Tile from './../components/Tile';
 import Header from './../components/Header';
-import axios from 'axios';  // Axios for API calls
+import axios from 'axios';
+import AsyncStorage from "@react-native-async-storage/async-storage";  // Axios for API calls
+
+const API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/get-dashboardDetails";
 
 const RepairScreen = ({ navigation }: any) => {
     const [repairs, setRepairs] = useState<any[]>([]);
+    const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(false);
 
     useEffect(() => {
-        const fetchRepairs = async () => {
-            setLoading(true);
-            try {
-                const response = await axios.get('API_URL_FOR_REPAIRS'); // Replace with your repair API
-                setRepairs(response.data); // Set data to state
-            } catch (error) {
-                console.error('Error fetching repairs:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchRepairs();
+        fetchOrders();
     }, []);
+
+    const fetchOrders = async () => {
+        try {
+            const token = await AsyncStorage.getItem("authToken");
+
+            if (!token) {
+                setError("User not authenticated");
+                Alert.alert("Session Expired", "Please login again", [
+                    { text: "OK", onPress: () => navigation.replace("Login") },
+                ]);
+                return;
+            }
+
+            const response = await axios.post(
+                API_URL,
+                {"isOrderScreen": "false"},
+                {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
+
+            setRepairs(response.data);  // Update state with the fetched data
+        } catch (err: any) {
+            setError("Failed to fetch orders: " + (err.message || "Unknown error"));
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const renderTile = ({ item }: any) => (
         <Tile

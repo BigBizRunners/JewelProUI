@@ -4,6 +4,7 @@ import OrdersScreen from '../screens/OrderScreen';
 import RepairScreen from '../screens/RepairScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import BottomNavBar from '../components/BottomNavBar';
+import SettingsStackNavigator from "../components/SettingsStackNavigator";
 
 const Tab = createBottomTabNavigator();
 
@@ -20,7 +21,7 @@ const BottomTabNavigator = () => {
         >
             <Tab.Screen name="Orders" component={OrdersScreen} options={{ headerTitle: 'JewelPro' }}/>
             <Tab.Screen name="Repair" component={RepairScreen} options={{ headerTitle: 'JewelPro' }}/>
-            <Tab.Screen name="Settings" component={SettingsScreen} options={{ headerTitle: 'JewelPro' }}/>
+            <Tab.Screen name="Settings" component={SettingsStackNavigator} options={{ headerTitle: 'JewelPro' }}/>
         </Tab.Navigator>
     );
 };

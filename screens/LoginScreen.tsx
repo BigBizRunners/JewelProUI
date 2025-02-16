@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
     View,
     Text,
@@ -16,8 +16,31 @@ import Icon from 'react-native-vector-icons/FontAwesome5';
 import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
 import userPool from '../cognitoConfig';
+import {useAuth} from "../components/AuthContext";
+import { BackHandler } from 'react-native';
 
 const LoginScreen = ({ navigation }: any) => {
+
+    useEffect(() => {
+        const checkToken = async () => {
+            const token = await AsyncStorage.getItem('authToken');
+            if (token) {
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            }
+        };
+        checkToken();
+    }, []);
+
+    useEffect(() => {
+        const backAction = () => {
+            return true; // Prevent going back from Login screen
+        };
+        const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+        return () => backHandler.remove();
+    }, []);
+
+    const { setCognitoUser, setSession } = useAuth();
+
     const [mobileNumber, setMobileNumber] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -48,23 +71,25 @@ const LoginScreen = ({ navigation }: any) => {
         user.authenticateUser(authenticationDetails, {
             onSuccess: async (result) => {
                 setLoading(false);
-
-                // Get the JWT token from the result
                 const token = result.getIdToken().getJwtToken();
-
-                // Store the token in AsyncStorage
                 await AsyncStorage.setItem('authToken', token);
-
-                // Navigate to Home screen
-                navigation.replace('Home', { phoneNumber: `+91${mobileNumber}` });
+                navigation.reset({ index: 0, routes: [{ name: 'Home', params: { phoneNumber: `+91${mobileNumber}` } }] });
             },
             onFailure: (err) => {
                 setLoading(false);
                 Alert.alert('Error', err.message || 'Login failed');
             },
-            newPasswordRequired: () => {
+            newPasswordRequired: (userAttributes, requiredAttributes) => {
                 setLoading(false);
+                setCognitoUser(user);
+                try {
+                    const session = user.getSignInUserSession();
+                    setSession(session);
+                } catch (error) {
+                    console.error('Error fetching session:', error);
+                }
                 Alert.alert('Password Change Required', 'You need to set a new password.');
+                navigation.navigate('ResetPassword');
             },
         });
     };

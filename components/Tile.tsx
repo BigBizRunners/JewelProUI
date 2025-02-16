@@ -15,7 +15,7 @@ const Tile = ({ title, orders, quantity, weight, color, onPress }: TileProps) =>
 
     return (
         <TouchableOpacity style={[styles.tile, { backgroundColor: color }]} onPress={onPress}>
-            <Text style={[styles.tileTitle, { color: textColor }]}>{title}</Text>
+            <Text style={[styles.tileTitle, { color: textColor }]} numberOfLines={2}>{title}</Text>
             <View style={styles.tileContent}>
                 <Text style={[styles.tileText, { color: textColor }]}>Orders: {orders}</Text>
                 <Text style={[styles.tileText, { color: textColor }]}>Quantity: {quantity}</Text>
@@ -37,29 +37,32 @@ const styles = StyleSheet.create({
     tile: {
         flex: 1,
         margin: 5,
-        padding: 15, // Adjusted padding to reduce extra space
+        padding: 15,
         borderRadius: 10,
         shadowColor: '#000',
         shadowOpacity: 0.1,
         shadowRadius: 5,
         elevation: 3,
-        height: 180, // Keep the height smaller to avoid excessive space
-        justifyContent: 'space-between', // Ensure content is spaced properly
+        height: 200,
+        justifyContent: 'space-between',
     },
     tileTitle: {
-        fontSize: 18, // Increased font size for title
+        fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 5, // Reduced space below the title
-        lineHeight: 22, // Ensures space even if the title wraps into two lines
+        lineHeight: 22,  // Maintain proper spacing
+        minHeight: 48,   // Ensure space for two lines
+        flexWrap: 'wrap', // Allow text to wrap instead of truncating
+        textAlignVertical: 'center',
+        marginBottom: 5,
     },
     tileContent: {
-        marginTop: 5, // Adjusted to bring the content closer to the title
+        marginTop: 5,
     },
     tileText: {
         fontSize: 14,
     },
     weightContainer: {
-        marginTop: 10, // Space between separator and weight section
+        marginTop: 10,
     },
     tileWeight: {
         fontSize: 14,
@@ -67,13 +70,13 @@ const styles = StyleSheet.create({
     },
     tileWeightValue: {
         fontSize: 14,
-        fontWeight: 'normal', // To differentiate from the label
-        marginTop: 5, // Adding some space between the label and value
+        fontWeight: 'normal',
+        marginTop: 5,
     },
     separator: {
         marginTop: 8,
         height: 1,
-        width: '100%', // Full width of the tile
+        width: '100%',
     },
 });
 

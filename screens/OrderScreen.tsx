@@ -30,7 +30,7 @@ const OrderScreen = ({ navigation }: any) => {
 
             const response = await axios.post(
                 API_URL,
-                {},
+                {"isOrderScreen": "true"},
                 {
                     headers: {
                         Authorization: `Bearer ${token}`,
@@ -136,7 +136,7 @@ const OrderScreen = ({ navigation }: any) => {
             {/* Render Header only after data is fetched */}
             {!loading && ordersData && (
                 <Header
-                    title={ordersData.userName}  // Assuming 'userName' is in the response
+                    title={ordersData.username}  // Assuming 'userName' is in the response
                     buttonText="Create Order"
                     onPress={() => navigation.navigate('CreateOrder')}
                 />
