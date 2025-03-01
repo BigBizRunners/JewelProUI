@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     View,
     Text,
@@ -11,12 +11,11 @@ import {
     KeyboardAvoidingView,
     Platform
 } from 'react-native';
-// @ts-ignore
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Import AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import userPool from '../cognitoConfig';
-import {useAuth} from "../components/AuthContext";
+import { useAuth } from '../components/AuthContext';
 import { BackHandler } from 'react-native';
 
 const LoginScreen = ({ navigation }: any) => {
@@ -32,9 +31,7 @@ const LoginScreen = ({ navigation }: any) => {
     }, []);
 
     useEffect(() => {
-        const backAction = () => {
-            return true; // Prevent going back from Login screen
-        };
+        const backAction = () => true;
         const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
         return () => backHandler.remove();
     }, []);
@@ -47,7 +44,7 @@ const LoginScreen = ({ navigation }: any) => {
     const [loading, setLoading] = useState(false);
 
     const handleLogin = () => {
-        if (mobileNumber.length !== 10) {
+        if (!/^[0-9]{10}$/.test(mobileNumber)) {
             Alert.alert('Error', 'Please enter a valid 10-digit mobile number');
             return;
         }
@@ -95,11 +92,10 @@ const LoginScreen = ({ navigation }: any) => {
     };
 
     return (
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
                 <Text style={styles.title}>JewelPro</Text>
 
-                {/* Mobile Number Field */}
                 <Text style={styles.label}>Mobile Number</Text>
                 <View style={styles.inputContainer}>
                     <Text style={styles.prefix}>+91</Text>
@@ -113,7 +109,6 @@ const LoginScreen = ({ navigation }: any) => {
                     />
                 </View>
 
-                {/* Password Field */}
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.passwordContainer}>
                     <TextInput
@@ -128,11 +123,10 @@ const LoginScreen = ({ navigation }: any) => {
                     </TouchableOpacity>
                 </View>
 
-                {/* Login Button */}
                 <TouchableOpacity
-                    style={[styles.loginButton, (mobileNumber.length !== 10 || !password.trim()) && styles.disabledButton]}
+                    style={[styles.loginButton, (!mobileNumber || !password.trim()) && styles.disabledButton]}
                     onPress={handleLogin}
-                    disabled={mobileNumber.length !== 10 || !password.trim() || loading}
+                    disabled={!mobileNumber || !password.trim() || loading}
                 >
                     {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.loginButtonText}>LOGIN</Text>}
                 </TouchableOpacity>
@@ -142,7 +136,8 @@ const LoginScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-    container: { flexGrow: 1, backgroundColor: '#f9f9f9', paddingHorizontal: 20, paddingTop: 200, paddingBottom: 30 },
+    container: { flex: 1, backgroundColor: '#f9f9f9', paddingHorizontal: 20, paddingBottom: 30 },
+    scrollContainer: { flexGrow: 1, justifyContent: 'center' },
     title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', color: '#075E54', marginBottom: 30 },
     label: { color: '#333', fontSize: 14, marginBottom: 5 },
     inputContainer: { flexDirection: 'row', alignItems: 'center', borderColor: '#ccc', borderWidth: 1, borderRadius: 8, backgroundColor: '#fff', marginBottom: 15, paddingHorizontal: 10, height: 45 },

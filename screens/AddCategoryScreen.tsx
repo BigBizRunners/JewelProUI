@@ -10,7 +10,7 @@ import {
     Platform
 } from 'react-native';
 
-const AddCategoryScreen = ({ navigation, route }) => {
+const AddCategoryScreen = ({ navigation, route }: any) => {
     const [categoryName, setCategoryName] = useState('');
     const [minDays, setMinDays] = useState('');
     const [bufferDays, setBufferDays] = useState('');
