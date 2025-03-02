@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import Icon from "react-native-vector-icons/FontAwesome5";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ResetPasswordScreen = ({ navigation }: any) => {
     const { cognitoUser, setSession } = useAuth();
@@ -50,17 +51,25 @@ const ResetPasswordScreen = ({ navigation }: any) => {
             return;
         }
 
+        if (!cognitoUser) {
+            Alert.alert('Error', 'No user session available. Please log in again.');
+            navigation.replace('Login');
+            return;
+        }
+
         setLoading(true);
         setIsResetting(true);
 
-        // @ts-ignore
         cognitoUser.completeNewPasswordChallenge(newPassword, {}, {
-            onSuccess: (session) => {
+            onSuccess: async (session) => {
                 setSession(session);
                 setLoading(false);
                 setIsResetting(false);
+                const newToken = session.getIdToken().getJwtToken();
+                await AsyncStorage.setItem('authToken', newToken);
+                await AsyncStorage.setItem('cognitoUsername', cognitoUser.getUsername());
                 Alert.alert('Success', 'Password updated successfully', [
-                    { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Login' }] }) }
+                    { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }) }
                 ]);
             },
             onFailure: (err) => {
@@ -84,10 +93,6 @@ const ResetPasswordScreen = ({ navigation }: any) => {
                         value={newPassword}
                         onChangeText={setNewPassword}
                     />
-                    {/*<TouchableOpacity onPress={() => setShowPassword(!showPassword)}>*/}
-                    {/*    <Text style={styles.toggleText}>{showPassword ? 'Hide' : 'Show'}</Text>*/}
-                    {/*</TouchableOpacity>*/}
-
                     <TouchableOpacity style={styles.showPasswordButton} onPress={() => setShowPassword(!showPassword)}>
                         <Icon name={showPassword ? 'eye' : 'eye-slash'} size={20} color="#333" />
                     </TouchableOpacity>
@@ -101,9 +106,8 @@ const ResetPasswordScreen = ({ navigation }: any) => {
                         value={confirmPassword}
                         onChangeText={setConfirmPassword}
                     />
-
                     <TouchableOpacity style={styles.showPasswordButton} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-                        <Icon name={showPassword ? 'eye' : 'eye-slash'} size={20} color="#333" />
+                        <Icon name={showConfirmPassword ? 'eye' : 'eye-slash'} size={20} color="#333" />
                     </TouchableOpacity>
                 </View>
 

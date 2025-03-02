@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '../components/AuthContext'; // Import useAuth
 
 const settingsOptions = [
     { id: '1', title: 'Categories', navigateTo: 'Categories', icon: 'shape' },
@@ -13,17 +13,14 @@ const settingsOptions = [
 
 const SettingsScreen = () => {
     const navigation = useNavigation();
+    const { logout } = useAuth(); // Get logout from AuthContext
 
     const handleLogout = async () => {
-        try {
-            await AsyncStorage.removeItem('authToken'); // Remove token from storage
-            navigation.reset({
-                index: 0,
-                routes: [{ name: 'Login' }], // Reset navigation to Login screen
-            });
-        } catch (err) {
-            console.log('Logout Error:', err);
-        }
+        await logout(); // Use AuthContext logout
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'Login' }],
+        });
     };
 
     const handleItemPress = (item: any) => {
@@ -44,7 +41,7 @@ const SettingsScreen = () => {
 
     const renderItem = ({ item }: any) => (
         <TouchableOpacity
-            style={[styles.optionContainer, item.action === 'logout' && styles.logoutOption]} // Apply logout specific styling
+            style={[styles.optionContainer, item.action === 'logout' && styles.logoutOption]}
             onPress={() => handleItemPress(item)}
         >
             <View style={styles.iconContainer}>
@@ -93,9 +90,9 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     logoutOption: {
-        marginTop: 10, // Separation for the logout button
-        backgroundColor: '#fff', // Keep the background color consistent with other items
-        borderBottomWidth: 0, // Remove bottom border so it aligns with the last separator
+        marginTop: 10,
+        backgroundColor: '#fff',
+        borderBottomWidth: 0,
     },
     iconContainer: {
         width: 32,

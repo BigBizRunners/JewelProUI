@@ -19,7 +19,6 @@ import { useAuth } from '../components/AuthContext';
 import { BackHandler } from 'react-native';
 
 const LoginScreen = ({ navigation }: any) => {
-
     useEffect(() => {
         const checkToken = async () => {
             const token = await AsyncStorage.getItem('authToken');
@@ -70,6 +69,9 @@ const LoginScreen = ({ navigation }: any) => {
                 setLoading(false);
                 const token = result.getIdToken().getJwtToken();
                 await AsyncStorage.setItem('authToken', token);
+                await AsyncStorage.setItem('cognitoUsername', `+91${mobileNumber}`);
+                setCognitoUser(user);
+                setSession(result);
                 navigation.reset({ index: 0, routes: [{ name: 'Home', params: { phoneNumber: `+91${mobileNumber}` } }] });
             },
             onFailure: (err) => {
@@ -79,12 +81,6 @@ const LoginScreen = ({ navigation }: any) => {
             newPasswordRequired: (userAttributes, requiredAttributes) => {
                 setLoading(false);
                 setCognitoUser(user);
-                try {
-                    const session = user.getSignInUserSession();
-                    setSession(session);
-                } catch (error) {
-                    console.error('Error fetching session:', error);
-                }
                 Alert.alert('Password Change Required', 'You need to set a new password.');
                 navigation.navigate('ResetPassword');
             },
