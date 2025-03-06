@@ -13,12 +13,13 @@ const settingsOptions = [
 
 const SettingsScreen = () => {
     const navigation = useNavigation();
-    const { logout } = useAuth(); // Get logout from AuthContext
+    const { logout } = useAuth();
 
     const handleLogout = async () => {
-        await logout(); // Use AuthContext logout
+        await logout();
         navigation.reset({
             index: 0,
+            // @ts-ignore
             routes: [{ name: 'Login' }],
         });
     };
@@ -35,6 +36,7 @@ const SettingsScreen = () => {
                 { cancelable: false }
             );
         } else {
+            // @ts-ignore
             navigation.navigate(item.navigateTo);
         }
     };

@@ -10,7 +10,10 @@ const OrderScreen = ({ navigation }: any) => {
     const { data: ordersData, error, loading } = useAuthenticatedFetch(navigation, {
         url: API_URL,
         data: { "isOrderScreen": "true" },
+        autoFetch: true, // Ensure API is called on mount
     });
+
+    console.log("Orders Data:", ordersData); // Debug log to check response
 
     const calculateTotals = (states: any[]) => {
         let allOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };
@@ -33,7 +36,7 @@ const OrderScreen = ({ navigation }: any) => {
         return { allOrders, pendingOrders };
     };
 
-    const orderStates = ordersData?.ordersPerState.ordersPerState || [];
+    const orderStates = ordersData?.ordersPerState?.ordersPerState || [];
     const { allOrders, pendingOrders } = calculateTotals(orderStates);
 
     const adjustedStates = orderStates.length % 2 !== 0
@@ -63,25 +66,28 @@ const OrderScreen = ({ navigation }: any) => {
 
     return (
         <View style={styles.container}>
-            {!loading && ordersData && (
-                <Header
-                    title={ordersData.username}
-                    buttonText="Create Order"
-                    onPress={() => navigation.navigate('CreateOrder')}
-                />
-            )}
-            {error && <Text style={styles.errorText}>{error}</Text>}
             {loading ? (
                 <ActivityIndicator size="large" color="#0000ff" style={styles.loading} />
+            ) : error ? (
+                <Text style={styles.errorText}>{error}</Text>
+            ) : ordersData ? (
+                <>
+                    <Header
+                        title={ordersData.username || "User"} // Fallback if username is missing
+                        buttonText="Create Order"
+                        onPress={() => navigation.navigate('CreateOrder')}
+                    />
+                    <FlatList
+                        data={[...defaultTiles, ...adjustedStates]}
+                        renderItem={renderTile}
+                        keyExtractor={(item) => item.id}
+                        numColumns={2}
+                        columnWrapperStyle={styles.row}
+                        contentContainerStyle={styles.list}
+                    />
+                </>
             ) : (
-                <FlatList
-                    data={[...defaultTiles, ...adjustedStates]}
-                    renderItem={renderTile}
-                    keyExtractor={(item) => item.id}
-                    numColumns={2}
-                    columnWrapperStyle={styles.row}
-                    contentContainerStyle={styles.list}
-                />
+                <Text style={styles.errorText}>No data available</Text> // Fallback for null data
             )}
         </View>
     );

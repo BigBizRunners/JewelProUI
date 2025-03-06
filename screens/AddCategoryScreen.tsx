@@ -9,46 +9,44 @@ import {
     ScrollView,
     Platform
 } from 'react-native';
+import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const AddCategoryScreen = ({ navigation, route }: any) => {
+const API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/addCategory";
+
+const AddCategoryScreen = ({ navigation }: any) => {
     const [categoryName, setCategoryName] = useState('');
     const [minDays, setMinDays] = useState('');
     const [bufferDays, setBufferDays] = useState('');
     const [quantityUnit, setQuantityUnit] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [apiError, setApiError] = useState(''); // Local state for API-specific errors
+    const { fetchData, error: fetchError, loading } = useAuthenticatedFetch(navigation);
 
     const handleAddCategory = async () => {
-        if (categoryName.trim() === '' || minDays.trim() === '' || bufferDays.trim() === '' || quantityUnit.trim() === '') return;
+        if (!categoryName.trim() || !minDays.trim() || !bufferDays.trim() || !quantityUnit.trim()) return;
 
         const newCategory = {
             name: categoryName,
-            minDays: Number(minDays),
-            bufferDays: Number(bufferDays),
-            quantityUnit,
+            minimumDaysForDueDate: parseInt(minDays),
+            bufferDaysForDueDate: parseInt(bufferDays),
+            quantityUnit: [quantityUnit],
         };
 
-        setLoading(true);
+        // Reset previous error
+        setApiError('');
 
-        try {
-            const response = await fetch('https://your-api-endpoint.com/categories', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newCategory),
-            });
+        const responseData = await fetchData({
+            url: API_URL,
+            method: 'POST',
+            data: newCategory,
+        });
 
-            if (!response.ok) {
-                throw new Error('Failed to add category');
-            }
+        console.log("Response is ==> " + JSON.stringify(responseData));
 
-            const responseData = await response.json();
-            route.params?.addCategory(responseData);
+        if (responseData && responseData.status === "success") {
             navigation.goBack();
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setLoading(false);
+        } else if (responseData && responseData.status === "failure") {
+            // Set API-specific error message
+            setApiError(responseData.responseMessage || "Failed to add category");
         }
     };
 
@@ -85,10 +83,14 @@ const AddCategoryScreen = ({ navigation, route }: any) => {
                     value={quantityUnit}
                     onChangeText={setQuantityUnit}
                 />
+                {/* Display API-specific error */}
+                {apiError && <Text style={styles.errorText}>{apiError}</Text>}
+                {/* Display fetch-related errors (e.g., network issues) */}
+                {fetchError && !apiError && <Text style={styles.errorText}>{fetchError}</Text>}
             </ScrollView>
-            <View style={styles.footerContainer}>
+            <View>
                 <TouchableOpacity style={styles.addButton} onPress={handleAddCategory} disabled={loading}>
-                    <Text style={styles.addButtonText}>{loading ? 'Adding...' : 'ADD CATEGORY'}</Text>
+                    <Text style={styles.addButtonText}>{loading ? 'Adding...' : 'Add Category'}</Text>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -136,7 +138,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#fff',
-        marginLeft: 8
+        marginLeft: 8,
+    },
+    errorText: {
+        color: 'red',
+        fontSize: 14,
+        textAlign: 'center',
+        marginBottom: 10,
     },
 });
 

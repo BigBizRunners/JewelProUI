@@ -1,4 +1,3 @@
-// ../hooks/useAuthenticatedFetch.ts
 import { useState, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../components/AuthContext';
@@ -11,12 +10,13 @@ interface FetchOptions {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     data?: any;
     headers?: Record<string, string>;
+    autoFetch?: boolean;
 }
 
-const useAuthenticatedFetch = (navigation: any, options: FetchOptions) => {
+const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
     const [data, setData] = useState<any>(null);
     const [error, setError] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(true);
+    const [loading, setLoading] = useState<boolean>(options?.autoFetch ? true : false);
     const [hasCheckedSession, setHasCheckedSession] = useState(false);
     const { isAuthenticated, refreshSession } = useAuth();
 
@@ -30,67 +30,82 @@ const useAuthenticatedFetch = (navigation: any, options: FetchOptions) => {
         }
     };
 
-    const fetchData = async () => {
-        const token = await AsyncStorage.getItem("authToken");
-        if (!token) {
-            throw new Error("No token available");
-        }
+    const fetchData = async (fetchOptions: FetchOptions) => {
+        setLoading(true);
+        try {
+            const storedToken = await AsyncStorage.getItem("authToken");
+            console.log("Stored token on fetch:", storedToken); // Debug log
+            let token = storedToken;
 
-        const response = await axios({
-            method: options.method || 'POST',
-            url: options.url,
-            data: options.data,
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-        });
-
-        setData(response.data);
-    };
-
-    useEffect(() => {
-        const checkSessionAndFetch = async () => {
-            if (hasCheckedSession) return;
-
-            try {
-                const authenticated = await isAuthenticated();
-                if (!authenticated) {
-                    setError("User not authenticated");
+            const authenticated = await isAuthenticated();
+            if (!authenticated || !token) {
+                console.log("Not authenticated or no token, attempting refresh...");
+                try {
+                    await refreshSession();
+                    token = await AsyncStorage.getItem("authToken");
+                    console.log("Token after refresh attempt:", token);
+                } catch (refreshError) {
+                    console.error("Refresh failed:", refreshError);
+                    setError("Session expired, please log in again");
                     Alert.alert("Session Expired", "Please login again", [
                         { text: "OK", onPress: () => navigation.replace("Login") },
                     ]);
-                    setHasCheckedSession(true);
-                    return;
+                    return null;
                 }
+            }
 
-                let token = await AsyncStorage.getItem("authToken");
-                if (token && isTokenExpired(token)) {
-                    console.log("Token expired, refreshing...");
-                    await refreshSession();
-                    token = await AsyncStorage.getItem("authToken");
-                    console.log("New token:", token);
-                }
-
-                await fetchData();
-                setHasCheckedSession(true);
-            } catch (error) {
-                console.error("Session check error:", error);
-                setError("Session error: " + (error.message || "Unknown error"));
-                Alert.alert("Session Error", "Please login again", [
+            if (!token) {
+                console.log("No token available after refresh");
+                setError("No token available, please log in");
+                Alert.alert("Session Expired", "Please login again", [
                     { text: "OK", onPress: () => navigation.replace("Login") },
                 ]);
-                setHasCheckedSession(true);
-            } finally {
-                setLoading(false);
+                return null;
             }
+
+            if (isTokenExpired(token)) {
+                console.log("Token expired, refreshing...");
+                await refreshSession();
+                token = await AsyncStorage.getItem("authToken");
+                console.log("New token:", token);
+            }
+
+            const response = await axios({
+                method: fetchOptions.method || 'POST',
+                url: fetchOptions.url,
+                data: fetchOptions.data,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                    ...fetchOptions.headers,
+                },
+            });
+            console.log("API response:", response.data);
+
+            setData(response.data);
+            return response.data;
+        } catch (error) {
+            console.error("Fetch error:", error);
+            // @ts-ignore
+            setError("Failed to fetch: " + (error.message || "Unknown error"));
+            return null;
+        } finally {
+            setLoading(false);
+            setHasCheckedSession(true);
+        }
+    };
+
+    useEffect(() => {
+        if (!options?.autoFetch || hasCheckedSession) return;
+
+        const checkSessionAndFetch = async () => {
+            await fetchData(options);
         };
 
         checkSessionAndFetch();
-    }, [navigation, hasCheckedSession, options.url, options.method, options.data]);
+    }, [navigation, hasCheckedSession, options?.url, options?.method, options?.data, options?.autoFetch]);
 
-    return { data, error, loading, refetch: fetchData };
+    return { data, error, loading, fetchData };
 };
 
 export default useAuthenticatedFetch;

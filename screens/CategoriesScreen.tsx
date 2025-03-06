@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -7,28 +7,54 @@ import {
     TouchableOpacity,
     Modal,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
+
+const GET_CATEGORIES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getCategoriesByUser";
+const MODIFY_CATEGORY_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryByUser";
 
 const CategoriesScreen = ({ navigation }: any) => {
-    const [categories, setCategories] = useState([
-        { id: '1', name: 'Rings' },
-        { id: '2', name: 'Necklaces' },
-        { id: '3', name: 'Bracelets' },
-    ]);
+    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation, {
+        url: GET_CATEGORIES_API_URL,
+        data: { "isCategoriesScreen": "true" },
+        autoFetch: true,
+    });
 
+    const [categories, setCategories] = useState(responseData?.categories || []);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [isModalVisible, setModalVisible] = useState(false);
+    const [deleteLoading, setDeleteLoading] = useState(false);
 
-    // Open modal for the selected category
-    const openModal = ({category}: any) => {
+    // Sync local state with fetched data
+    useEffect(() => {
+        if (responseData?.categories) {
+            console.log("Fetched categories:", responseData.categories);
+            setCategories(responseData.categories);
+        }
+    }, [responseData]);
+
+    // Re-fetch categories when screen comes into focus
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            console.log("CategoriesScreen focused, re-fetching data");
+            fetchData({
+                url: GET_CATEGORIES_API_URL,
+                data: { "isCategoriesScreen": "true" },
+            });
+        });
+        return unsubscribe;
+    }, [navigation, fetchData]);
+
+    const openModal = (category: any) => {
         setSelectedCategory(category);
         setModalVisible(true);
     };
 
-    // Handle category actions
     const handleEdit = () => {
         setModalVisible(false);
+        // TODO: Implement edit functionality later
     };
 
     const handleViewOrderFields = () => {
@@ -37,23 +63,43 @@ const CategoriesScreen = ({ navigation }: any) => {
 
     const handleViewRepairFields = () => {
         setModalVisible(false);
-        // @ts-ignore
-        Alert.alert('View Repair Fields', `Viewing repair fields for: ${selectedCategory.name}`);
+        Alert.alert('View Repair Fields', `Viewing repair fields for: ${selectedCategory?.name}`);
     };
 
-    const handleDelete = () => {
+    const handleDelete = async () => {
         setModalVisible(false);
-        // @ts-ignore
         Alert.alert(
             'Delete Category',
-            `Are you sure you want to delete ${selectedCategory.name}?`,
+            `Are you sure you want to delete ${selectedCategory?.name}?`,
             [
                 { text: 'Cancel', style: 'cancel' },
                 {
                     text: 'Delete',
                     style: 'destructive',
-                    onPress: () => {
-                        setCategories(categories.filter((item) => item.id !== selectedCategory.id));
+                    onPress: async () => {
+                        setDeleteLoading(true);
+                        try {
+                            const deleteResponse = await fetchData({
+                                url: MODIFY_CATEGORY_API_URL,
+                                method: 'POST',
+                                data: {
+                                    operation: "delete",
+                                    categoryId: selectedCategory.categoryId,
+                                },
+                            });
+
+                            if (deleteResponse && deleteResponse.status === "success") {
+                                setCategories(categories.filter((item) => item.categoryId !== selectedCategory.categoryId));
+                                Alert.alert("Success", deleteResponse.message || "Category deleted successfully");
+                            } else {
+                                Alert.alert("Error", deleteResponse?.errorMessage || "Failed to delete category");
+                            }
+                        } catch (e) {
+                            console.error("Delete error:", e);
+                            Alert.alert("Error", "An error occurred while deleting the category");
+                        } finally {
+                            setDeleteLoading(false);
+                        }
                     },
                 },
             ]
@@ -72,21 +118,32 @@ const CategoriesScreen = ({ navigation }: any) => {
 
     return (
         <View style={styles.container}>
-            <FlatList
-                data={categories}
-                keyExtractor={(item) => item.id}
-                renderItem={renderCategoryItem}
-                ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            {loading && categories.length === 0 ? (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                </View>
+            ) : error ? (
+                <Text style={styles.errorText}>{error}</Text>
+            ) : (
+                <>
+                    <FlatList
+                        data={categories}
+                        keyExtractor={(item) => item.categoryId}
+                        renderItem={renderCategoryItem}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    />
+                    <TouchableOpacity
+                        style={styles.addButton}
+                        onPress={() => navigation.navigate('AddCategory')}
+                        disabled={deleteLoading}
+                    >
+                        <Text style={styles.addButtonText}>
+                            {deleteLoading ? 'Deleting...' : 'Add Category'}
+                        </Text>
+                    </TouchableOpacity>
+                </>
+            )}
 
-            <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => navigation.navigate('AddCategory')}
-            >
-                <Text style={styles.addButtonText}>Add Category</Text>
-            </TouchableOpacity>
-
-            {/* Modal for Category Options */}
             <Modal
                 visible={isModalVisible}
                 transparent
@@ -95,37 +152,17 @@ const CategoriesScreen = ({ navigation }: any) => {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>
-                            {selectedCategory?.name}
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.modalOption}
-                            onPress={handleEdit}
-                        >
-                            <Text style={styles.modalOptionText}>
-                                Edit Category
-                            </Text>
+                        <Text style={styles.modalTitle}>{selectedCategory?.name}</Text>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleEdit}>
+                            <Text style={styles.modalOptionText}>Edit Category</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.modalOption}
-                            onPress={handleViewOrderFields}
-                        >
-                            <Text style={styles.modalOptionText}>
-                                View Order Fields
-                            </Text>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleViewOrderFields}>
+                            <Text style={styles.modalOptionText}>View Order Fields</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.modalOption}
-                            onPress={handleViewRepairFields}
-                        >
-                            <Text style={styles.modalOptionText}>
-                                View Repair Fields
-                            </Text>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleViewRepairFields}>
+                            <Text style={styles.modalOptionText}>View Repair Fields</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.modalOption}
-                            onPress={handleDelete}
-                        >
+                        <TouchableOpacity style={styles.modalOption} onPress={handleDelete}>
                             <Text style={[styles.modalOptionText, { color: 'red' }]}>Delete Category</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
@@ -207,6 +244,17 @@ const styles = StyleSheet.create({
     modalOptionText: {
         fontSize: 16,
         color: '#075E54',
+    },
+    errorText: {
+        color: 'red',
+        fontSize: 16,
+        textAlign: 'center',
+        marginBottom: 10,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
 });
 
