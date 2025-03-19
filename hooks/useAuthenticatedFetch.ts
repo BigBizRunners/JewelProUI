@@ -34,7 +34,6 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
         setLoading(true);
         try {
             const storedToken = await AsyncStorage.getItem("authToken");
-            console.log("Stored token on fetch:", storedToken); // Debug log
             let token = storedToken;
 
             const authenticated = await isAuthenticated();

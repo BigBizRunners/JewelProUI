@@ -25,7 +25,7 @@ const CategoriesScreen = ({ navigation }: any) => {
     const [categories, setCategories] = useState(responseData?.categories || []);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [isModalVisible, setModalVisible] = useState(false);
-    const [deleteLoading, setDeleteLoading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Sync local state with fetched data
     useEffect(() => {
@@ -47,9 +47,18 @@ const CategoriesScreen = ({ navigation }: any) => {
         return unsubscribe;
     }, [navigation, fetchData]);
 
+    // Disable navigation gestures during delete
+    useEffect(() => {
+        navigation.setOptions({
+            gestureEnabled: !isDeleting, // Disable swipe gestures
+        });
+    }, [navigation, isDeleting]);
+
     const openModal = (category: any) => {
-        setSelectedCategory(category);
-        setModalVisible(true);
+        if (!isDeleting) { // Prevent opening modal during delete
+            setSelectedCategory(category);
+            setModalVisible(true);
+        }
     };
 
     const handleEdit = () => {
@@ -77,7 +86,9 @@ const CategoriesScreen = ({ navigation }: any) => {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                        setDeleteLoading(true);
+                        console.log("Starting delete, isDeleting:", isDeleting);
+                        setIsDeleting(true);
+                        console.log("Set isDeleting to true");
                         try {
                             const deleteResponse = await fetchData({
                                 url: MODIFY_CATEGORY_API_URL,
@@ -98,11 +109,13 @@ const CategoriesScreen = ({ navigation }: any) => {
                             console.error("Delete error:", e);
                             Alert.alert("Error", "An error occurred while deleting the category");
                         } finally {
-                            setDeleteLoading(false);
+                            setIsDeleting(false);
+                            console.log("Delete finished, isDeleting:", isDeleting);
                         }
                     },
                 },
-            ]
+            ],
+            { cancelable: false } // Prevent dismissing alert during delete
         );
     };
 
@@ -110,6 +123,7 @@ const CategoriesScreen = ({ navigation }: any) => {
         <TouchableOpacity
             style={styles.categoryItem}
             onPress={() => openModal(item)}
+            disabled={isDeleting}
         >
             <Text style={styles.categoryText}>{item.name}</Text>
             <MaterialCommunityIcons name="chevron-right" size={24} color="#888" />
@@ -121,6 +135,7 @@ const CategoriesScreen = ({ navigation }: any) => {
             {loading && categories.length === 0 ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Loading categories...</Text>
                 </View>
             ) : error ? (
                 <Text style={styles.errorText}>{error}</Text>
@@ -135,39 +150,46 @@ const CategoriesScreen = ({ navigation }: any) => {
                     <TouchableOpacity
                         style={styles.addButton}
                         onPress={() => navigation.navigate('AddCategory')}
-                        disabled={deleteLoading}
+                        disabled={isDeleting}
                     >
-                        <Text style={styles.addButtonText}>
-                            {deleteLoading ? 'Deleting...' : 'Add Category'}
-                        </Text>
+                        <Text style={styles.addButtonText}>Add Category</Text>
                     </TouchableOpacity>
                 </>
+            )}
+
+            {/* Full-screen loader during delete */}
+            {isDeleting && (
+                <View style={styles.fullScreenLoader}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Deleting category...</Text>
+                </View>
             )}
 
             <Modal
                 visible={isModalVisible}
                 transparent
                 animationType="slide"
-                onRequestClose={() => setModalVisible(false)}
+                onRequestClose={() => !isDeleting && setModalVisible(false)} // Prevent close during delete
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
                         <Text style={styles.modalTitle}>{selectedCategory?.name}</Text>
-                        <TouchableOpacity style={styles.modalOption} onPress={handleEdit}>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleEdit} disabled={isDeleting}>
                             <Text style={styles.modalOptionText}>Edit Category</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.modalOption} onPress={handleViewOrderFields}>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleViewOrderFields} disabled={isDeleting}>
                             <Text style={styles.modalOptionText}>View Order Fields</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.modalOption} onPress={handleViewRepairFields}>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleViewRepairFields} disabled={isDeleting}>
                             <Text style={styles.modalOptionText}>View Repair Fields</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.modalOption} onPress={handleDelete}>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleDelete} disabled={isDeleting}>
                             <Text style={[styles.modalOptionText, { color: 'red' }]}>Delete Category</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.modalOption, { marginTop: 10 }]}
-                            onPress={() => setModalVisible(false)}
+                            onPress={() => !isDeleting && setModalVisible(false)}
+                            disabled={isDeleting}
                         >
                             <Text style={[styles.modalOptionText, { color: '#333' }]}>Cancel</Text>
                         </TouchableOpacity>
@@ -255,6 +277,18 @@ const styles = StyleSheet.create({
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    fullScreenLoader: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)', // Darker overlay for visibility
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000, // Ensure it’s on top
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#fff',
     },
 });
 
