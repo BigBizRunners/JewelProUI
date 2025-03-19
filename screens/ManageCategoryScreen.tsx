@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -11,33 +11,46 @@ import {
 } from 'react-native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/addCategory";
-//deprecated. not being used. We are using ManageCategoryScreen for adding and updating category
-const AddCategoryScreen = ({ navigation }: any) => {
-    const [categoryName, setCategoryName] = useState('');
-    const [minDays, setMinDays] = useState('');
-    const [bufferDays, setBufferDays] = useState('');
-    const [quantityUnit, setQuantityUnit] = useState('');
-    const [apiError, setApiError] = useState(''); // Local state for API-specific errors
+const ADD_CATEGORY_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/addCategory";
+const MODIFY_CATEGORY_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryByUser";
+
+const ManageCategoryScreen = ({ navigation, route }: any) => {
+    const isEditing = !!route.params?.category;
+    const existingCategory = route.params?.category || {};
+
+    const [categoryName, setCategoryName] = useState(existingCategory.name || '');
+    const [minDays, setMinDays] = useState(existingCategory.minimumDaysForDueDate?.toString() || '');
+    const [bufferDays, setBufferDays] = useState(existingCategory.bufferDaysForDueDate?.toString() || '');
+    const [quantityUnit, setQuantityUnit] = useState(existingCategory.quantityUnit?.[0] || '');
+    const [apiError, setApiError] = useState('');
     const { fetchData, error: fetchError, loading } = useAuthenticatedFetch(navigation);
 
-    const handleAddCategory = async () => {
-        if (!categoryName.trim() || !minDays.trim() || !bufferDays.trim() || !quantityUnit.trim()) return;
+    useEffect(() => {
+        navigation.setOptions({
+            title: isEditing ? 'Edit Category' : 'Add Category',
+        });
+    }, [navigation, isEditing]);
 
-        const newCategory = {
+    const handleSubmit = async () => {
+        if (!categoryName.trim() || !minDays.trim() || !bufferDays.trim() || !quantityUnit.trim()) {
+            setApiError('All fields are required');
+            return;
+        }
+
+        const categoryData = {
             name: categoryName,
             minimumDaysForDueDate: parseInt(minDays),
             bufferDaysForDueDate: parseInt(bufferDays),
             quantityUnit: [quantityUnit],
+            ...(isEditing && { categoryId: existingCategory.categoryId, operation: "update" }),
         };
 
-        // Reset previous error
         setApiError('');
-
+        const url = isEditing ? MODIFY_CATEGORY_API_URL : ADD_CATEGORY_API_URL;
         const responseData = await fetchData({
-            url: API_URL,
+            url,
             method: 'POST',
-            data: newCategory,
+            data: categoryData,
         });
 
         console.log("Response is ==> " + JSON.stringify(responseData));
@@ -45,8 +58,7 @@ const AddCategoryScreen = ({ navigation }: any) => {
         if (responseData && responseData.status === "success") {
             navigation.goBack();
         } else if (responseData && responseData.status === "failure") {
-            // Set API-specific error message
-            setApiError(responseData.responseMessage || "Failed to add category");
+            setApiError(responseData.responseMessage || `Failed to ${isEditing ? 'update' : 'add'} category`);
         }
     };
 
@@ -59,6 +71,7 @@ const AddCategoryScreen = ({ navigation }: any) => {
                     placeholder="Enter category name"
                     value={categoryName}
                     onChangeText={setCategoryName}
+                    editable={!loading}
                 />
                 <Text style={styles.label}>Minimum Days For Due Date <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -67,6 +80,7 @@ const AddCategoryScreen = ({ navigation }: any) => {
                     keyboardType="numeric"
                     value={minDays}
                     onChangeText={setMinDays}
+                    editable={!loading}
                 />
                 <Text style={styles.label}>Buffer Days For Due Date <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -75,6 +89,7 @@ const AddCategoryScreen = ({ navigation }: any) => {
                     keyboardType="numeric"
                     value={bufferDays}
                     onChangeText={setBufferDays}
+                    editable={!loading}
                 />
                 <Text style={styles.label}>Quantity Unit (Eg. pcs) <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -82,17 +97,20 @@ const AddCategoryScreen = ({ navigation }: any) => {
                     placeholder="Enter quantity unit"
                     value={quantityUnit}
                     onChangeText={setQuantityUnit}
+                    editable={!loading}
                 />
-                {/* Display API-specific error */}
                 {apiError && <Text style={styles.errorText}>{apiError}</Text>}
-                {/* Display fetch-related errors (e.g., network issues) */}
                 {fetchError && !apiError && <Text style={styles.errorText}>{fetchError}</Text>}
             </ScrollView>
-            <View>
-                <TouchableOpacity style={styles.addButton} onPress={handleAddCategory} disabled={loading}>
-                    <Text style={styles.addButtonText}>{loading ? 'Adding...' : 'Add Category'}</Text>
-                </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleSubmit}
+                disabled={loading}
+            >
+                <Text style={styles.addButtonText}>
+                    {loading ? (isEditing ? 'Updating...' : 'Adding...') : (isEditing ? 'Update Category' : 'Add Category')}
+                </Text>
+            </TouchableOpacity>
         </KeyboardAvoidingView>
     );
 };
@@ -106,6 +124,7 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         padding: 20,
+        paddingBottom: 80, // Extra space to prevent overlap with button
     },
     label: {
         fontSize: 12,
@@ -132,6 +151,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginTop: 20,
         marginBottom: 20,
+        marginHorizontal: 20, // Match CategoriesScreen horizontal spacing
         justifyContent: 'center',
     },
     addButtonText: {
@@ -148,4 +168,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default AddCategoryScreen;
+export default ManageCategoryScreen;

@@ -27,7 +27,6 @@ const CategoriesScreen = ({ navigation }: any) => {
     const [isModalVisible, setModalVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Sync local state with fetched data
     useEffect(() => {
         if (responseData?.categories) {
             console.log("Fetched categories:", responseData.categories);
@@ -35,7 +34,6 @@ const CategoriesScreen = ({ navigation }: any) => {
         }
     }, [responseData]);
 
-    // Re-fetch categories when screen comes into focus
     useEffect(() => {
         const unsubscribe = navigation.addListener('focus', () => {
             console.log("CategoriesScreen focused, re-fetching data");
@@ -47,15 +45,14 @@ const CategoriesScreen = ({ navigation }: any) => {
         return unsubscribe;
     }, [navigation, fetchData]);
 
-    // Disable navigation gestures during delete
     useEffect(() => {
         navigation.setOptions({
-            gestureEnabled: !isDeleting, // Disable swipe gestures
+            gestureEnabled: !isDeleting,
         });
     }, [navigation, isDeleting]);
 
     const openModal = (category: any) => {
-        if (!isDeleting) { // Prevent opening modal during delete
+        if (!isDeleting) {
             setSelectedCategory(category);
             setModalVisible(true);
         }
@@ -63,7 +60,7 @@ const CategoriesScreen = ({ navigation }: any) => {
 
     const handleEdit = () => {
         setModalVisible(false);
-        // TODO: Implement edit functionality later
+        navigation.navigate('ManageCategory', { category: selectedCategory }); // Pass category data
     };
 
     const handleViewOrderFields = () => {
@@ -115,7 +112,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                     },
                 },
             ],
-            { cancelable: false } // Prevent dismissing alert during delete
+            { cancelable: false }
         );
     };
 
@@ -149,7 +146,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                     />
                     <TouchableOpacity
                         style={styles.addButton}
-                        onPress={() => navigation.navigate('AddCategory')}
+                        onPress={() => navigation.navigate('ManageCategory')} // No category for add
                         disabled={isDeleting}
                     >
                         <Text style={styles.addButtonText}>Add Category</Text>
@@ -157,7 +154,6 @@ const CategoriesScreen = ({ navigation }: any) => {
                 </>
             )}
 
-            {/* Full-screen loader during delete */}
             {isDeleting && (
                 <View style={styles.fullScreenLoader}>
                     <ActivityIndicator size="large" color="#0000ff" />
@@ -169,7 +165,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                 visible={isModalVisible}
                 transparent
                 animationType="slide"
-                onRequestClose={() => !isDeleting && setModalVisible(false)} // Prevent close during delete
+                onRequestClose={() => !isDeleting && setModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
@@ -280,10 +276,10 @@ const styles = StyleSheet.create({
     },
     fullScreenLoader: {
         ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)', // Darker overlay for visibility
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 1000, // Ensure it’s on top
+        zIndex: 1000,
     },
     loadingText: {
         marginTop: 10,

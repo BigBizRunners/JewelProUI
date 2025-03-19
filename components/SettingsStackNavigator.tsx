@@ -2,7 +2,7 @@ import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import SettingsScreen from '../screens/SettingsScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
-import AddCategoryScreen from '../screens/AddCategoryScreen';
+import ManageCategoryScreen from '../screens/ManageCategoryScreen'; // Updated import
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -28,11 +28,11 @@ const SettingsStackNavigator = () => {
                 })}
             />
             <Stack.Screen
-                name="AddCategory"
-                component={AddCategoryScreen}
-                options={{
-                    title: 'Add Category',
-                }}
+                name="ManageCategory" // Updated name
+                component={ManageCategoryScreen}
+                options={({ route }) => ({
+                    title: route.params?.category ? 'Edit Category' : 'Add Category', // Dynamic title
+                })}
             />
         </Stack.Navigator>
     );
