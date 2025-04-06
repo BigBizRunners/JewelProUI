@@ -44,7 +44,6 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
                     token = await AsyncStorage.getItem("authToken");
                     console.log("Token after refresh attempt:", token);
                 } catch (refreshError) {
-                    console.error("Refresh failed:", refreshError);
                     setError("Session expired, please log in again");
                     Alert.alert("Session Expired", "Please login again", [
                         { text: "OK", onPress: () => navigation.replace("Login") },

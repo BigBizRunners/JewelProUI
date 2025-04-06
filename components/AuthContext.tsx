@@ -87,7 +87,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 await refreshSession();
                 return true;
             } catch (error) {
-                console.error('Refresh failed:', error);
                 return false;
             }
         }

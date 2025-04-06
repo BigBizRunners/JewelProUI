@@ -65,11 +65,14 @@ const CategoriesScreen = ({ navigation }: any) => {
 
     const handleViewOrderFields = () => {
         setModalVisible(false);
+        // @ts-ignore
+        navigation.navigate('ViewFields', { categoryId: selectedCategory.categoryId, isOrderFields: true });
     };
 
     const handleViewRepairFields = () => {
         setModalVisible(false);
-        Alert.alert('View Repair Fields', `Viewing repair fields for: ${selectedCategory?.name}`);
+        // @ts-ignore
+        navigation.navigate('ViewFields', { categoryId: selectedCategory.categoryId, isOrderFields: false });
     };
 
     const handleDelete = async () => {
@@ -97,7 +100,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                             });
 
                             if (deleteResponse && deleteResponse.status === "success") {
-                                setCategories(categories.filter((item) => item.categoryId !== selectedCategory.categoryId));
+                                setCategories(categories.filter((item: { categoryId: any; }) => item.categoryId !== selectedCategory.categoryId));
                                 Alert.alert("Success", deleteResponse.message || "Category deleted successfully");
                             } else {
                                 Alert.alert("Error", deleteResponse?.errorMessage || "Failed to delete category");
