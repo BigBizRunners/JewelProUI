@@ -6,8 +6,8 @@ import { useAuth } from '../components/AuthContext'; // Import useAuth
 
 const settingsOptions = [
     { id: '1', title: 'Categories', navigateTo: 'Categories', icon: 'shape' },
-    { id: '2', title: 'Clients', navigateTo: 'AddClient', icon: 'account-group' },
-    { id: '3', title: 'Users', navigateTo: 'AddClient', icon: 'account' },
+    { id: '2', title: 'Clients', navigateTo: 'Clients', icon: 'account-group' },
+    { id: '3', title: 'Users', navigateTo: 'Users', icon: 'account' },
     { id: '4', title: 'Logout', action: 'logout', icon: 'logout' },
 ];
 

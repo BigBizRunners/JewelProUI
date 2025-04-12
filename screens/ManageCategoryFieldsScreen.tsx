@@ -31,18 +31,6 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
     });
     const [apiError, setApiError] = useState('');
 
-    const normalizeFieldTypeForBackend = (fieldType) => {
-        switch (fieldType) {
-            case "Text": return "TEXT";
-            case "Small Text": return "SMALL_TEXT";
-            case "Large Text": return "LARGE_TEXT";
-            case "Note": return "NOTE";
-            case "Dropdown Options": return "DROPDOWN_OPTIONS";
-            case "Multi-select Dropdown Options": return "MULTI_SELECT_DROPDOWN_OPTIONS";
-            default: return fieldType;
-        }
-    };
-
     const addField = async () => {
         if (!fieldData.fieldName.trim()) {
             setApiError('Field name is required');
@@ -52,7 +40,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
         const payload = {
             categoryId,
             fieldName: fieldData.fieldName,
-            fieldType: normalizeFieldTypeForBackend(fieldData.fieldType),
+            fieldType: fieldData.fieldType,
             position: parseInt(fieldData.position, 10),
             isVisibleInClientOrderForm: fieldData.isVisibleInClientOrderForm,
             isVisibleInKarigarJobCard: fieldData.isVisibleInKarigarJobCard,
@@ -125,8 +113,8 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                                     styles.optionText,
                                     fieldData.fieldType === option.value && styles.optionTextSelected,
                                 ]}
-                                numberOfLines={2} // Allow text to wrap to 2 lines
-                                ellipsizeMode="tail" // Truncate with ellipsis if still too long
+                                numberOfLines={2}
+                                ellipsizeMode="tail"
                             >
                                 {option.label}
                             </Text>
@@ -237,8 +225,8 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     optionButton: {
-        width: '32%', // Slightly increased width to accommodate longer text
-        height: 50, // Increased height to fit wrapped text
+        width: '32%',
+        height: 50,
         padding: 5,
         borderWidth: 1,
         borderColor: '#ccc',
@@ -252,7 +240,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#e0f2f1',
     },
     optionText: {
-        fontSize: 12, // Reduced font size to fit longer text
+        fontSize: 12,
         color: '#333',
         textAlign: 'center',
     },

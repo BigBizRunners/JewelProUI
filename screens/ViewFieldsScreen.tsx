@@ -15,6 +15,7 @@ import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 const FIELDS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getCategoryFields";
 const UPDATE_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/updateCategoryField";
+const MODIFY_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryField";
 
 const ViewFieldsScreen = ({ navigation, route }: any) => {
     const { categoryId, isOrderFields } = route.params;
@@ -29,7 +30,9 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
     const [selectedField, setSelectedField] = useState(null);
     const [dropdownOptions, setDropdownOptions] = useState([]);
     const [newOption, setNewOption] = useState('');
-    const [isModalVisible, setModalVisible] = useState(false);
+    const [isDropdownModalVisible, setDropdownModalVisible] = useState(false);
+    const [isActionModalVisible, setActionModalVisible] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
         navigation.setOptions({
@@ -44,20 +47,37 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         }
     }, [responseData]);
 
-    const openDropdownModal = (field : any) => {
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            console.log("ViewFieldsScreen focused, re-fetching data");
+            fetchData({
+                url: FIELDS_API_URL,
+                method: 'POST',
+                data: { categoryId, isOrderFields },
+            });
+        });
+        return unsubscribe;
+    }, [navigation, fetchData, categoryId, isOrderFields]);
+
+    useEffect(() => {
+        navigation.setOptions({
+            gestureEnabled: !isDeleting,
+        });
+    }, [navigation, isDeleting]);
+
+    const openDropdownModal = (field: any) => {
         setSelectedField(field);
         setDropdownOptions(field.fieldDetails?.options || []);
-        setModalVisible(true);
+        setDropdownModalVisible(true);
     };
 
     const addDropdownOption = () => {
         if (!newOption.trim()) return;
-        // @ts-ignore
         setDropdownOptions([...dropdownOptions, newOption.trim()]);
         setNewOption('');
     };
 
-    const removeDropdownOption = (option : any) => {
+    const removeDropdownOption = (option: any) => {
         setDropdownOptions(dropdownOptions.filter(opt => opt !== option));
     };
 
@@ -76,9 +96,8 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         });
 
         if (response && response.status === "success") {
-            // @ts-ignore
             setFields(fields.map(f => f.fieldId === selectedField.fieldId ? updatedField : f));
-            setModalVisible(false);
+            setDropdownModalVisible(false);
             Alert.alert("Success", "Dropdown options updated successfully");
         } else {
             Alert.alert("Error", response?.errorMessage || "Failed to update dropdown options");
@@ -89,15 +108,15 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         navigation.navigate('ManageCategoryFields', {
             categoryId,
             isOrderFields,
-            onFieldAdded: async (...args: any) => { // Explicitly ignore arguments
-                console.log("onFieldAdded triggered with args:", args); // Debug
+            onFieldAdded: async (...args: any) => {
+                console.log("onFieldAdded triggered with args:", args);
                 try {
                     const refreshedData = await fetchData({
                         url: FIELDS_API_URL,
                         method: 'POST',
                         data: { categoryId, isOrderFields },
                     });
-                    console.log("Refetched fields:", JSON.stringify(refreshedData?.fields, null, 2)); // Debug
+                    console.log("Refetched fields:", JSON.stringify(refreshedData?.fields, null, 2));
                     if (refreshedData?.fields) {
                         setFields(refreshedData.fields);
                     } else {
@@ -111,6 +130,81 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         });
     };
 
+    const handleModifyField = () => {
+        setActionModalVisible(false);
+        navigation.navigate('ManageCategoryFields', {
+            categoryId,
+            isOrderFields,
+            field: selectedField, // Pre-fill with existing field data
+            onFieldAdded: async () => {
+                try {
+                    const refreshedData = await fetchData({
+                        url: FIELDS_API_URL,
+                        method: 'POST',
+                        data: { categoryId, isOrderFields },
+                    });
+                    if (refreshedData?.fields) {
+                        setFields(refreshedData.fields);
+                    } else {
+                        Alert.alert("Error", "No fields returned after modifying");
+                    }
+                } catch (e) {
+                    console.error("Error refetching fields:", e);
+                    Alert.alert("Error", "Failed to refresh fields: " + e.message);
+                }
+            },
+        });
+    };
+
+    const handleDeleteField = async () => {
+        setActionModalVisible(false);
+        Alert.alert(
+            'Delete Field',
+            `Are you sure you want to delete ${selectedField?.fieldName}?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        setIsDeleting(true);
+                        try {
+                            const deleteResponse = await fetchData({
+                                url: MODIFY_FIELD_API_URL,
+                                method: 'POST',
+                                data: {
+                                    operation: "delete",
+                                    fieldId: selectedField.fieldId,
+                                    categoryId,
+                                },
+                            });
+
+                            if (deleteResponse && deleteResponse.status === "success") {
+                                setFields(fields.filter(f => f.fieldId !== selectedField.fieldId));
+                                Alert.alert("Success", deleteResponse.message || "Field deleted successfully");
+                            } else {
+                                Alert.alert("Error", deleteResponse?.errorMessage || "Failed to delete field");
+                            }
+                        } catch (e) {
+                            console.error("Delete error:", e);
+                            Alert.alert("Error", "An error occurred while deleting the field");
+                        } finally {
+                            setIsDeleting(false);
+                        }
+                    },
+                },
+            ],
+            { cancelable: false }
+        );
+    };
+
+    const openActionModal = (field: any) => {
+        if (!isDeleting) {
+            setSelectedField(field);
+            setActionModalVisible(true);
+        }
+    };
+
     const normalizeFieldType = (fieldType: any) => {
         switch (fieldType) {
             case "TEXT": return "Text";
@@ -120,9 +214,12 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         }
     };
 
-    // @ts-ignore
-    const renderFieldItem = ({ item }) => (
-        <View key={item.fieldId} style={styles.fieldItem}>
+    const renderFieldItem = ({ item }: any) => (
+        <TouchableOpacity
+            style={styles.fieldItem}
+            onPress={() => openActionModal(item)}
+            disabled={isDeleting}
+        >
             <Text style={styles.fieldName}>{item.fieldName}</Text>
             <View style={styles.fieldTypeContainer}>
                 <Text style={styles.fieldType}>{normalizeFieldType(item.fieldType)}</Text>
@@ -132,7 +229,7 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
                     </TouchableOpacity>
                 )}
             </View>
-        </View>
+        </TouchableOpacity>
     );
 
     return (
@@ -152,18 +249,50 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
                         renderItem={renderFieldItem}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
                     />
-                    <TouchableOpacity style={styles.addFieldButton} onPress={navigateToAddField}>
-                        <MaterialCommunityIcons name="plus" size={24} color="#fff" />
+                    <TouchableOpacity style={styles.addFieldButton} onPress={navigateToAddField} disabled={isDeleting}>
                         <Text style={styles.addFieldText}>Add Field</Text>
                     </TouchableOpacity>
                 </View>
             )}
 
+            {isDeleting && (
+                <View style={styles.fullScreenLoader}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Deleting field...</Text>
+                </View>
+            )}
+
             <Modal
-                visible={isModalVisible}
+                visible={isActionModalVisible}
                 transparent
                 animationType="slide"
-                onRequestClose={() => setModalVisible(false)}
+                onRequestClose={() => !isDeleting && setActionModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>{selectedField?.fieldName}</Text>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleModifyField} disabled={isDeleting}>
+                            <Text style={styles.modalOptionText}>Modify Field</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.modalOption} onPress={handleDeleteField} disabled={isDeleting}>
+                            <Text style={[styles.modalOptionText, { color: 'red' }]}>Delete Field</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.modalOption, { marginTop: 10 }]}
+                            onPress={() => !isDeleting && setActionModalVisible(false)}
+                            disabled={isDeleting}
+                        >
+                            <Text style={[styles.modalOptionText, { color: '#333' }]}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            <Modal
+                visible={isDropdownModalVisible}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setDropdownModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
@@ -193,7 +322,7 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
                             <TouchableOpacity style={styles.saveButton} onPress={saveDropdownOptions}>
                                 <Text style={styles.buttonText}>Save</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+                            <TouchableOpacity style={styles.cancelButton} onPress={() => setDropdownModalVisible(false)}>
                                 <Text style={styles.buttonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
@@ -248,10 +377,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    fullScreenLoader: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+    },
     loadingText: {
         marginTop: 10,
         fontSize: 16,
-        color: '#333',
+        color: '#fff',
     },
     errorText: {
         color: 'red',
@@ -285,13 +421,19 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         borderRadius: 8,
         padding: 20,
-        maxHeight: '80%',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 20,
         color: '#333',
+    },
+    modalOption: {
+        paddingVertical: 12,
+    },
+    modalOptionText: {
+        fontSize: 16,
+        color: '#075E54',
     },
     optionItem: {
         flexDirection: 'row',

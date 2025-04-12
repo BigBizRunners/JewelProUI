@@ -4,9 +4,10 @@ import SettingsScreen from '../screens/SettingsScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import ManageCategoryScreen from '../screens/ManageCategoryScreen';
 import ViewFieldsScreen from '../screens/ViewFieldsScreen';
-import ManageCategoryFieldsScreen from '../screens/ManageCategoryFieldsScreen'; // Renamed import
+import ManageCategoryFieldsScreen from '../screens/ManageCategoryFieldsScreen';
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import ClientsScreen from "../screens/ClientsScreen";
 
 const Stack = createStackNavigator();
 
@@ -52,6 +53,18 @@ const SettingsStackNavigator = () => {
                 component={ManageCategoryFieldsScreen}
                 options={({ navigation, route }) => ({
                     title: route.params?.field ? 'Edit Field' : 'Add Field',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="Clients"
+                component={ClientsScreen}
+                options={({ navigation }) => ({
+                    title: 'Client Details',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
