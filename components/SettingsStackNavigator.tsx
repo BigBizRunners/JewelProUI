@@ -7,7 +7,8 @@ import ViewFieldsScreen from '../screens/ViewFieldsScreen';
 import ManageCategoryFieldsScreen from '../screens/ManageCategoryFieldsScreen';
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import ClientsScreen from "../screens/ClientsScreen";
+import ClientsScreen from '../screens/ClientsScreen';
+import ManageClientScreen from '../screens/ManageClientScreen'; // Import the new screen
 
 const Stack = createStackNavigator();
 
@@ -65,6 +66,18 @@ const SettingsStackNavigator = () => {
                 component={ClientsScreen}
                 options={({ navigation }) => ({
                     title: 'Client Details',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="ManageClient"
+                component={ManageClientScreen}
+                options={({ navigation, route }) => ({
+                    title: route.params?.client ? 'Update Client' : 'Add Client',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />

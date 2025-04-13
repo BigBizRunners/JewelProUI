@@ -13,8 +13,6 @@ const OrderScreen = ({ navigation }: any) => {
         autoFetch: true, // Ensure API is called on mount
     });
 
-    console.log("Orders Data:", ordersData); // Debug log to check response
-
     const calculateTotals = (states: any[]) => {
         let allOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };
         let pendingOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };

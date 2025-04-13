@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -10,28 +10,44 @@ import {
     Linking,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const GET_CLIENTS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getClients"; // Hypothetical endpoint
+const HANDLE_CLIENT_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/handleClientOperation";
+const GET_CLIENTS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getClients";
 
-const ClientsScreen = ({ navigation }: any) => {
-    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation, {
-        url: GET_CLIENTS_API_URL,
-        method: 'POST',
-        autoFetch: true,
-    });
-
+const ClientsScreen = () => {
+    const navigation = useNavigation();
+    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation);
     const [clients, setClients] = useState([]);
+    const [deleteLoading, setDeleteLoading] = useState(false); // Add deleteLoading state
+
+    const fetchDataRef = useRef(fetchData);
 
     useEffect(() => {
-        if (responseData?.clients) {
-            setClients(responseData.clients);
-        } else {
-            console.log("No clients data:", responseData);
-        }
-    }, [responseData]);
+        fetchDataRef.current = fetchData;
+    }, [fetchData]);
 
-    const handleDelete = (clientId: string) => {
+    const fetchClients = useCallback(async () => {
+        try {
+            const response = await fetchDataRef.current({ url: GET_CLIENTS_API_URL, method: 'POST' });
+            if (response?.clients) {
+                setClients(response.clients);
+            } else {
+                console.log("No clients data:", response);
+            }
+        } catch (err) {
+            console.error("Error fetching clients:", err);
+        }
+    }, []);
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchClients();
+        }, [fetchClients])
+    );
+
+    const handleDelete = async (clientId: string) => {
         Alert.alert(
             'Delete Client',
             'Are you sure you want to delete this client?',
@@ -41,9 +57,34 @@ const ClientsScreen = ({ navigation }: any) => {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                        console.log(`Delete client with ID: ${clientId}`);
-                        setClients(clients.filter(client => client.clientId !== clientId));
-                        Alert.alert("Success", "Client deleted successfully");
+                        setDeleteLoading(true); // Set loading to true before delete
+                        console.log(`Deleting client with ID: ${clientId}`);
+                        try {
+                            const requestData = {
+                                operation: 'delete',
+                                clientId,
+                            };
+                            const response = await fetchDataRef.current({
+                                url: HANDLE_CLIENT_OPERATION_API_URL,
+                                method: 'POST',
+                                data: requestData,
+                            });
+                            console.log("Delete response:", JSON.stringify(response));
+
+                            setDeleteLoading(false); // Set loading to false after response
+
+                            if (response && response.status === "success") {
+                                setClients(clients.filter(client => client.clientId !== clientId));
+                                Alert.alert("Success", "Client deleted successfully");
+                                fetchClients();
+                            } else if (response && response.status === "failure") {
+                                Alert.alert("Error", response.responseMessage || "Failed to delete client");
+                            }
+                        } catch (error) {
+                            setDeleteLoading(false); // Set loading to false on error
+                            Alert.alert("Error", "Failed to delete client");
+                            console.log("Delete error:", error);
+                        }
                     },
                 },
             ],
@@ -71,37 +112,42 @@ const ClientsScreen = ({ navigation }: any) => {
         }
     };
 
-    const renderClientItem = ({ item }: { item: any }) => (
-        <TouchableOpacity
-            style={styles.fieldItem}
-            onPress={() => {}}
-            disabled={true}
-        >
-            <View style={styles.clientInfo}>
-                <Text style={styles.fieldName}>{item.name || 'N/A'}</Text>
-                <Text style={styles.fieldType}>Mobile No: {item.clientContactNumber || 'N/A'}</Text>
-                <View style={styles.actionContainer}>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleWhatsApp(item.clientContactNumber)}
-                    >
-                        <MaterialCommunityIcons name="whatsapp" size={20} color="#075E54" />
-                        <Text style={styles.actionText}>WhatsApp</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleCall(item.clientContactNumber)}
-                    >
-                        <MaterialCommunityIcons name="phone" size={20} color="#075E54" />
-                        <Text style={styles.actionText}>Call</Text>
-                    </TouchableOpacity>
+    const renderClientItem = ({ item }: { item: any }) => {
+        if (!item || typeof item !== 'object') {
+            console.log("Invalid item:", item);
+            return null;
+        }
+        return (
+            <TouchableOpacity
+                style={styles.fieldItem}
+                onPress={() => navigation.navigate('ManageClient', { client: item })}
+            >
+                <View style={styles.clientInfo}>
+                    <Text style={styles.fieldName}>{item.name || 'N/A'}</Text>
+                    <Text style={styles.fieldType}>Mobile No: {item.clientContactNumber || 'N/A'}</Text>
+                    <View style={styles.actionContainer}>
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleWhatsApp(item.clientContactNumber)}
+                        >
+                            <MaterialCommunityIcons name="whatsapp" size={20} color="#075E54" />
+                            <Text style={styles.actionText}>WhatsApp</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.actionButton}
+                            onPress={() => handleCall(item.clientContactNumber)}
+                        >
+                            <MaterialCommunityIcons name="phone" size={20} color="#075E54" />
+                            <Text style={styles.actionText}>Call</Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-            <TouchableOpacity onPress={() => handleDelete(item.clientId)} style={styles.deleteButton}>
-                <MaterialCommunityIcons name="trash-can-outline" size={24} color="#888" />
+                <TouchableOpacity onPress={() => handleDelete(item.clientId)} style={styles.deleteButton}>
+                    <MaterialCommunityIcons name="trash-can-outline" size={24} color="#888" />
+                </TouchableOpacity>
             </TouchableOpacity>
-        </TouchableOpacity>
-    );
+        );
+    };
 
     if (loading && clients.length === 0) {
         return (
@@ -118,15 +164,20 @@ const ClientsScreen = ({ navigation }: any) => {
 
     return (
         <View style={styles.container}>
+            {deleteLoading && ( // Show loader when deleteLoading is true
+                <View style={styles.overlay}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                </View>
+            )}
             <View style={styles.contentContainer}>
                 <FlatList
                     data={clients}
-                    keyExtractor={(item) => item.clientId} // Reverted to direct clientId
+                    keyExtractor={(item) => item.clientId}
                     renderItem={renderClientItem}
                     ItemSeparatorComponent={() => <View style={styles.separator} />}
                 />
             </View>
-            <TouchableOpacity style={styles.addFieldButton} onPress={() => navigation.navigate('AddClient')}>
+            <TouchableOpacity style={styles.addFieldButton} onPress={() => navigation.navigate('ManageClient')}>
                 <Text style={styles.addFieldText}>Add Client</Text>
             </TouchableOpacity>
         </View>
@@ -149,7 +200,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'flex-start',
         backgroundColor: '#fff',
-        padding: 10,
+        padding: 12,
         borderRadius: 8,
         elevation: 2,
     },
@@ -157,7 +208,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     fieldName: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '500',
         color: '#333',
     },
@@ -222,6 +273,13 @@ const styles = StyleSheet.create({
         height: 1,
         backgroundColor: '#e0e0e0',
         marginVertical: 8,
+    },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent overlay
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10, // Ensure overlay is on top
     },
 });
 
