@@ -8,7 +8,9 @@ const settingsOptions = [
     { id: '1', title: 'Categories', navigateTo: 'Categories', icon: 'shape' },
     { id: '2', title: 'Clients', navigateTo: 'Clients', icon: 'account-group' },
     { id: '3', title: 'Users', navigateTo: 'Users', icon: 'account' },
-    { id: '4', title: 'Logout', action: 'logout', icon: 'logout' },
+    { id: '4', title: 'General Order Fields', navigateTo: 'ViewFields', params: { isOrderFields: true }, icon: 'form-textbox' },
+    { id: '5', title: 'General Repair Fields', navigateTo: 'ViewFields', params: { isOrderFields: false }, icon: 'wrench' },
+    { id: '6', title: 'Logout', action: 'logout', icon: 'logout' },
 ];
 
 const SettingsScreen = () => {
@@ -37,7 +39,7 @@ const SettingsScreen = () => {
             );
         } else {
             // @ts-ignore
-            navigation.navigate(item.navigateTo);
+            navigation.navigate(item.navigateTo, item.params || {});
         }
     };
 

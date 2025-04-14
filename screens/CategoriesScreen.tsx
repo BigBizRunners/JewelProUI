@@ -16,13 +16,9 @@ const GET_CATEGORIES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazon
 const MODIFY_CATEGORY_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryByUser";
 
 const CategoriesScreen = ({ navigation }: any) => {
-    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation, {
-        url: GET_CATEGORIES_API_URL,
-        data: { "isCategoriesScreen": "true" },
-        autoFetch: true,
-    });
+    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation); // Removed autoFetch: true
 
-    const [categories, setCategories] = useState(responseData?.categories || []);
+    const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [isModalVisible, setModalVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);

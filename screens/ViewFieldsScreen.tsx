@@ -19,12 +19,7 @@ const MODIFY_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaw
 
 const ViewFieldsScreen = ({ navigation, route }: any) => {
     const { categoryId, isOrderFields } = route.params;
-    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation, {
-        url: FIELDS_API_URL,
-        method: 'POST',
-        data: { categoryId, isOrderFields },
-        autoFetch: true,
-    });
+    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation); // Removed autoFetch: true
 
     const [fields, setFields] = useState([]);
     const [selectedField, setSelectedField] = useState(null);
