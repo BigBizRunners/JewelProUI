@@ -8,7 +8,8 @@ import ManageCategoryFieldsScreen from '../screens/ManageCategoryFieldsScreen';
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ClientsScreen from '../screens/ClientsScreen';
-import ManageClientScreen from '../screens/ManageClientScreen'; // Import the new screen
+import ManageClientScreen from '../screens/ManageClientScreen';
+import OrderStatusScreen from "../screens/OrderStatusScreen";
 
 const Stack = createStackNavigator();
 
@@ -78,6 +79,18 @@ const SettingsStackNavigator = () => {
                 component={ManageClientScreen}
                 options={({ navigation, route }) => ({
                     title: route.params?.client ? 'Update Client' : 'Add Client',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="OrderStatus"
+                component={OrderStatusScreen}
+                options={({ navigation, route }) => ({
+                    title: route.params?.statusType === 'order' ? 'Order Status' : 'Repair Status',
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />

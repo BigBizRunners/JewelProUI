@@ -10,7 +10,9 @@ const settingsOptions = [
     { id: '3', title: 'Users', navigateTo: 'Users', icon: 'account' },
     { id: '4', title: 'General Order Fields', navigateTo: 'ViewFields', params: { isOrderFields: true }, icon: 'form-textbox' },
     { id: '5', title: 'General Repair Fields', navigateTo: 'ViewFields', params: { isOrderFields: false }, icon: 'wrench' },
-    { id: '6', title: 'Logout', action: 'logout', icon: 'logout' },
+    { id: '6', title: 'Order Status', navigateTo: 'OrderStatus', params: { statusType: 'order' }, icon: 'clipboard-check' },
+    { id: '7', title: 'Repair Status', navigateTo: 'OrderStatus', params: { statusType: 'repair' }, icon: 'clipboard-text' },
+    { id: '8', title: 'Logout', action: 'logout', icon: 'logout' },
 ];
 
 const SettingsScreen = () => {
