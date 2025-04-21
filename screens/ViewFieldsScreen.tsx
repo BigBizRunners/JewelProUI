@@ -14,8 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 const FIELDS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getCategoryFields";
-const UPDATE_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/updateCategoryField";
-const MODIFY_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryField";
+const MANAGE_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageCategoryField";
 
 const ViewFieldsScreen = ({ navigation, route }: any) => {
     const { categoryId, isOrderFields } = route.params;
@@ -85,7 +84,7 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
         };
 
         const response = await fetchData({
-            url: UPDATE_FIELD_API_URL,
+            url: MANAGE_FIELD_API_URL,
             method: 'POST',
             data: updatedField,
         });
@@ -165,12 +164,12 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
                         setIsDeleting(true);
                         try {
                             const deleteResponse = await fetchData({
-                                url: MODIFY_FIELD_API_URL,
+                                url: MANAGE_FIELD_API_URL,
                                 method: 'POST',
                                 data: {
                                     operation: "delete",
                                     fieldId: selectedField.fieldId,
-                                    categoryId,
+                                    categoryId: categoryId,
                                 },
                             });
 
@@ -203,6 +202,9 @@ const ViewFieldsScreen = ({ navigation, route }: any) => {
     const normalizeFieldType = (fieldType: any) => {
         switch (fieldType) {
             case "TEXT": return "Text";
+            case "SMALL_TEXT": return "Small Text";
+            case "LARGE_TEXT": return "Large Text";
+            case "NOTE": return "Node";
             case "DROPDOWN_OPTIONS": return "Dropdown Options";
             case "MULTI_SELECT_DROPDOWN_OPTIONS": return "Multi-select Dropdown Options";
             default: return fieldType;

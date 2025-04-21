@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
@@ -13,13 +13,52 @@ import {
 } from 'react-native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const ADD_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/addCategoryField";
+const MANAGE_FIELD_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageCategoryField";
 
 const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
-    const { categoryId, isOrderFields, onFieldAdded } = route.params;
+    const { categoryId, isOrderFields, onFieldAdded, field } = route.params; // Extract field from params
     const { fetchData, error: fetchError, loading } = useAuthenticatedFetch(navigation);
 
+    // Normalize fieldType for display
+    const normalizeFieldTypeForDisplay = (fieldType: string) => {
+        switch (fieldType) {
+            case 'TEXT': return 'Text';
+            case 'SMALL_TEXT': return 'Small Text';
+            case 'LARGE_TEXT': return 'Large Text';
+            case 'NOTE': return 'Note';
+            case 'DROPDOWN_OPTIONS': return 'Dropdown Options';
+            case 'MULTI_SELECT_DROPDOWN_OPTIONS': return 'Multi-select Dropdown Options';
+            default: return fieldType;
+        }
+    };
+
+
+    // Convert string to boolean
+    const toBoolean = (value: any) => {
+        if (typeof value === 'string') {
+            return value.toLowerCase() === 'true' || value === '1';
+        }
+        return !!value; // Convert to boolean if not string
+    };
+
+    // Initialize state with field data if available, with debugging
+    useEffect(() => {
+        console.log('Received field data:', JSON.stringify(field, null, 2));
+        setFieldData({
+            fieldId: field?.fieldId || '',
+            fieldName: field?.fieldName || '',
+            fieldType: field ? normalizeFieldTypeForDisplay(field.fieldType) : 'Text',
+            position: field?.position?.toString() || '0',
+            isVisibleInClientOrderForm: field ? toBoolean(field.visibleInClientOrderForm) : false, // Map from incoming data
+            isVisibleInKarigarJobCard: field ? toBoolean(field.visibleInKarigarJobCard) : false, // Map from incoming data
+            isRequired: field ? toBoolean(field.required) : false, // Map from incoming data
+            isOrderField: isOrderFields,
+            isRepairField: !isOrderFields,
+        });
+    }, [field, isOrderFields]);
+
     const [fieldData, setFieldData] = useState({
+        fieldId: '',
         fieldName: '',
         fieldType: 'Text',
         position: '0',
@@ -31,40 +70,53 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
     });
     const [apiError, setApiError] = useState('');
 
-    const addField = async () => {
+    // Update navigation title based on whether we're adding or modifying
+    useEffect(() => {
+        navigation.setOptions({
+            title: field ? 'Modify Category Field' : 'Add Category Field',
+        });
+    }, [navigation, field]);
+
+    const handleSaveField = async () => {
         if (!fieldData.fieldName.trim()) {
             setApiError('Field name is required');
+            return;
+        }
+        if (!fieldData.position || isNaN(Number(fieldData.position))) {
+            setApiError('Position must be a valid number');
             return;
         }
 
         const payload = {
             categoryId,
+            fieldId: fieldData.fieldId || '', // Include fieldId for update
             fieldName: fieldData.fieldName,
             fieldType: fieldData.fieldType,
             position: parseInt(fieldData.position, 10),
-            isVisibleInClientOrderForm: fieldData.isVisibleInClientOrderForm,
-            isVisibleInKarigarJobCard: fieldData.isVisibleInKarigarJobCard,
-            isRequired: fieldData.isRequired,
-            isOrderField: fieldData.isOrderField,
-            isRepairField: fieldData.isRepairField,
+            isVisibleInClientOrderForm: fieldData.isVisibleInClientOrderForm, // Use expected API key
+            isVisibleInKarigarJobCard: fieldData.isVisibleInKarigarJobCard, // Use expected API key
+            isRequired: fieldData.isRequired, // Use expected API key
+            isOrderField: fieldData.isOrderField, // Use expected API key
+            isRepairField: fieldData.isRepairField, // Use expected API key
+            operation: field ? 'update' : 'add', // Add operation field
         };
 
-        console.log("Adding field with payload:", JSON.stringify(payload));
+        console.log("Saving field with payload:", JSON.stringify(payload));
 
         setApiError('');
         const response = await fetchData({
-            url: ADD_FIELD_API_URL,
+            url: MANAGE_FIELD_API_URL,
             method: 'POST',
             data: payload,
         });
 
         if (response && response.status === "success") {
-            console.log("Field added, response:", JSON.stringify(response));
+            console.log("Field saved, response:", JSON.stringify(response));
             await onFieldAdded();
             navigation.goBack();
-            Alert.alert("Success", "Field added successfully");
+            Alert.alert("Success", field ? "Field updated successfully" : "Field added successfully");
         } else {
-            setApiError(response?.errorMessage || "Failed to add field");
+            setApiError(response?.errorMessage || (field ? "Failed to update field" : "Failed to add field"));
         }
     };
 
@@ -179,11 +231,11 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
 
             <TouchableOpacity
                 style={styles.addButton}
-                onPress={addField}
+                onPress={handleSaveField}
                 disabled={loading}
             >
                 <Text style={styles.addButtonText}>
-                    {loading ? (route.params?.field ? 'Updating...' : 'Adding...') : (route.params?.field ? 'Update Field' : 'Add Field')}
+                    {loading ? (field ? 'Updating...' : 'Adding...') : (field ? 'Update Field' : 'Add Field')}
                 </Text>
             </TouchableOpacity>
         </KeyboardAvoidingView>

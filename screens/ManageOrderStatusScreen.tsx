@@ -2,73 +2,67 @@ import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
-    StyleSheet,
     TextInput,
     TouchableOpacity,
     Switch,
-    Modal,
-    FlatList,
-    Alert, ActivityIndicator,
+    Alert,
+    KeyboardAvoidingView,
+    ScrollView,
+    StyleSheet,
+    Platform, ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 const MANAGE_STATUS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageStatus";
 
-const ManageOrderStatusScreen = ({ navigation, route }: any) => {
+// Note: This version uses a callback in navigation params, triggering a non-serializable warning.
+// Consider using result-based navigation (await navigation.navigate) with React Navigation 5+
+// if state persistence or deep linking is needed. See troubleshooting guide for details.
+// Temporarily removed useAuthenticatedFetch to isolate hook error.
+const ManageStatusScreen = ({ navigation, route }: any) => {
     const { status, statusType, allStatuses } = route.params || { status: null, statusType: 'order', allStatuses: [] };
     const [statusName, setStatusName] = useState(status?.name || '');
     const [position, setPosition] = useState(status?.position?.toString() || '');
     const [showInPendingOrders, setShowInPendingOrders] = useState(status?.showInPendingOrders || false);
-    const [allowedStatusChanges, setAllowedStatusChanges] = useState<{ id: string; status: string }[]>(
-        status?.allowedStatusChanges?.map((id: string) => {
-            const s = allStatuses.find((s: any) => s.statusId === id);
-            return { id, status: s?.name || '' };
-        }) || []
+    const [allowedStatusChanges, setAllowedStatusChanges] = useState<{ statusId: string; statusName: string; isSelected: boolean }[]>(
+        status?.allowedStatusChanges
+            ? allStatuses.map(s => ({
+                statusId: s.statusId,
+                statusName: s.statusName || s.name,
+                isSelected: (status.allowedStatusChanges || []).includes(s.statusId),
+            }))
+            : allStatuses.map(s => ({ statusId: s.statusId, statusName: s.statusName || s.name, isSelected: false }))
     );
-    const [modalVisible, setModalVisible] = useState(false);
-    const [selectedStatuses, setSelectedStatuses] = useState<{ id: string; status: string }[]>([]);
     const [saveLoading, setSaveLoading] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (status) {
-            setSelectedStatuses(
-                status.allowedStatusChanges?.map((id: string) => {
-                    const s = allStatuses.find((s: any) => s.statusId === id);
-                    return { id, status: s?.name || '' };
-                }) || []
-            );
-        }
-    }, [status, allStatuses]);
+        navigation.setOptions({
+            title: status ? 'Edit Status' : 'Add Status',
+            headerLeft: () => (
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                </TouchableOpacity>
+            ),
+        });
+    }, [navigation, status]);
 
-    const openMultiSelectModal = () => {
-        setSelectedStatuses([...allowedStatusChanges]);
-        setModalVisible(true);
+    const handleSelectStatuses = () => {
+        navigation.navigate('SelectAllowedStatuses', {
+            allStatuses,
+            selectedStatuses: allowedStatusChanges.filter(s => s.isSelected),
+            currentStatusId: status?.statusId,
+            onSave: (selectedStatuses: { statusId: string; statusName: string; isSelected: boolean }[]) => {
+                console.log('Callback received selected statuses:', selectedStatuses);
+                const updatedStatuses = allStatuses.map(s => {
+                    const matchingStatus = selectedStatuses.find(ns => ns.statusId === s.statusId);
+                    return matchingStatus ? { ...s, isSelected: matchingStatus.isSelected } : { ...s, isSelected: false };
+                });
+                setAllowedStatusChanges(updatedStatuses);
+                console.log('Updated allowedStatusChanges state:', updatedStatuses);
+            },
+        });
     };
-
-    const handleMultiSelectSubmit = () => {
-        setAllowedStatusChanges(selectedStatuses);
-        setModalVisible(false);
-    };
-
-    const renderStatusItem = ({ item }: { item: any }) => (
-        <TouchableOpacity
-            style={styles.statusItem}
-            onPress={() => {
-                setSelectedStatuses(prev =>
-                    prev.some(s => s.id === item.statusId)
-                        ? prev.filter(s => s.id !== item.statusId)
-                        : [...prev, { id: item.statusId, status: item.name }]
-                );
-            }}
-        >
-            <Text style={styles.statusText}>{item.name}</Text>
-            {selectedStatuses.some(s => s.id === item.statusId) && (
-                <MaterialCommunityIcons name="check" size={20} color="#075E54" />
-            )}
-        </TouchableOpacity>
-    );
 
     const handleSave = async () => {
         if (!statusName.trim()) {
@@ -79,6 +73,7 @@ const ManageOrderStatusScreen = ({ navigation, route }: any) => {
             Alert.alert('Error', 'Position must be a valid number');
             return;
         }
+        console.log('it came here');
 
         setSaveLoading(true);
         setSaveError(null);
@@ -91,101 +86,95 @@ const ManageOrderStatusScreen = ({ navigation, route }: any) => {
                 name: statusName,
                 position: Number(position),
                 showInPendingOrders,
-                allowedStatusChanges: allowedStatusChanges,
+                allowedStatusChanges: allowedStatusChanges.filter(s => s.isSelected).map(s => s.statusId),
             },
         };
 
         try {
-            const { data, error: manageError } = await useAuthenticatedFetch(navigation, {
-                url: MANAGE_STATUS_API_URL,
+            console.log('Request Data:', JSON.stringify(requestData));
+            // Temporary replacement for useAuthenticatedFetch
+            const response = await fetch(MANAGE_STATUS_API_URL, {
                 method: 'POST',
-                data: requestData,
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Add authentication headers if needed (e.g., token)
+                    // 'Authorization': `Bearer your-token-here`,
+                },
+                body: JSON.stringify(requestData),
             });
+            const data = await response.json();
 
-            if (manageError || (data && data.status === 'failure')) {
-                setSaveError(manageError || data?.errorMessage || 'Failed to save status');
+            if (!response.ok || (data && data.status === 'failure')) {
+                Alert.alert('Error', 'Failed to save status');
             } else {
                 Alert.alert('Success', `Status ${status ? 'updated' : 'added'} successfully`);
                 navigation.goBack();
             }
         } catch (err) {
+            console.log('Fetch error:', err);
             setSaveError('An unexpected error occurred');
         } finally {
             setSaveLoading(false);
         }
     };
 
+    const isFormValid = () => {
+        return statusName.trim() !== '' && position.trim() !== '';
+    };
+
+    const isUpdate = !!status;
+    const buttonText = saveLoading ? (isUpdate ? 'Updating...' : 'Adding...') : (isUpdate ? 'Update Status' : 'Add Status');
+
     return (
-        <View style={styles.container}>
-            <Text style={styles.screenTitle}>{status ? 'Edit Status' : 'Add Status'}</Text>
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Status Name</Text>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
+            <ScrollView contentContainerStyle={styles.scrollView}>
+                <Text style={styles.label}>Status Name <Text style={styles.required}>*</Text></Text>
                 <TextInput
                     style={styles.input}
+                    placeholder="Enter status name"
                     value={statusName}
                     onChangeText={setStatusName}
-                    placeholder="Enter status name"
+                    editable={!saveLoading}
                 />
-            </View>
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Position</Text>
+                <Text style={styles.label}>Position <Text style={styles.required}>*</Text></Text>
                 <TextInput
                     style={styles.input}
+                    placeholder="Enter position"
                     value={position}
                     onChangeText={setPosition}
-                    placeholder="Enter position"
                     keyboardType="numeric"
+                    editable={!saveLoading}
                 />
-            </View>
-            <View style={styles.inputContainer}>
-                <Text style={styles.label}>Show in Pending Orders</Text>
-                <Switch
-                    trackColor={{ false: '#767577', true: '#075E54' }}
-                    thumbColor={showInPendingOrders ? '#fff' : '#f4f3f4'}
-                    ios_backgroundColor="#3e3e3e"
-                    onValueChange={setShowInPendingOrders}
-                    value={showInPendingOrders}
-                />
-            </View>
-            <View style={styles.inputContainer}>
                 <Text style={styles.label}>Allows Status Change</Text>
-                <TouchableOpacity style={styles.dropdown} onPress={openMultiSelectModal} activeOpacity={0.7}>
-                    <Text style={styles.dropdownText}>
-                        {allowedStatusChanges.length > 0
-                            ? allowedStatusChanges.map(s => s.status).join(', ')
-                            : 'Select statuses'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-down" size={20} color="#888" />
-                </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7} disabled={saveLoading}>
-                <Text style={styles.saveButtonText}>Save</Text>
-            </TouchableOpacity>
-            <Modal
-                animationType="slide"
-                transparent={true}
-                visible={modalVisible}
-                onRequestClose={() => setModalVisible(false)}
-            >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>Select Allowed Statuses</Text>
-                        <FlatList
-                            data={allStatuses.filter(s => s.statusId !== (status?.statusId || ''))}
-                            renderItem={renderStatusItem}
-                            keyExtractor={(item) => item.statusId}
-                            ItemSeparatorComponent={() => <View style={styles.separator} />}
-                        />
-                        <TouchableOpacity
-                            style={styles.submitButton}
-                            onPress={handleMultiSelectSubmit}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.submitButtonText}>Submit</Text>
-                        </TouchableOpacity>
+                <TouchableOpacity style={styles.input} onPress={handleSelectStatuses} disabled={saveLoading}>
+                    <View style={styles.dropdownContainer}>
+                        <Text style={styles.dropdownText}>
+                            {allowedStatusChanges.filter(s => s.isSelected).length > 0
+                                ? `${allowedStatusChanges.filter(s => s.isSelected).length} Selected`
+                                : 'Select statuses'}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-down" size={20} color="#888" style={styles.dropdownIcon} />
                     </View>
+                </TouchableOpacity>
+                <View style={styles.switchContainer}>
+                    <Text style={styles.label}>Show in Pending Orders</Text>
+                    <Switch
+                        value={showInPendingOrders}
+                        onValueChange={setShowInPendingOrders}
+                        disabled={saveLoading}
+                        trackColor={{ false: "#767577", true: "#075E54" }}
+                        thumbColor={showInPendingOrders ? "#f4f3f4" : "#f4f3f4"}
+                    />
                 </View>
-            </Modal>
+            </ScrollView>
+            <TouchableOpacity
+                style={[styles.addButton, (!isFormValid() || saveLoading) ? styles.disabledButton : null]}
+                onPress={handleSave}
+                disabled={!isFormValid() || saveLoading}
+                activeOpacity={0.7}
+            >
+                <Text style={styles.addButtonText}>{buttonText}</Text>
+            </TouchableOpacity>
             {saveLoading && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
@@ -193,66 +182,98 @@ const ManageOrderStatusScreen = ({ navigation, route }: any) => {
                 </View>
             )}
             {saveError && <Text style={styles.errorText}>{saveError}</Text>}
-        </View>
+        </KeyboardAvoidingView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#f9f9f9', paddingHorizontal: 16, paddingTop: 20 },
-    screenTitle: { fontSize: 24, fontWeight: 'bold', color: '#075E54', marginBottom: 20 },
-    inputContainer: { marginBottom: 15 },
-    label: { fontSize: 16, color: '#333', marginBottom: 5 },
-    input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 10, fontSize: 16 },
-    dropdown: {
-        borderWidth: 1,
+    container: {
+        flex: 1,
+        backgroundColor: '#f9f9f9',
+        paddingHorizontal: 5,
+        paddingTop: 5,
+    },
+    scrollView: {
+        paddingBottom: 80,
+        paddingHorizontal: 20,
+    },
+    label: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        color: '#000',
+    },
+    required: {
+        color: 'red',
+    },
+    input: {
+        borderBottomWidth: 1,
         borderColor: '#ccc',
-        borderRadius: 8,
         padding: 10,
+        marginBottom: 20,
+        fontSize: 16,
+    },
+    switchContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center'
-    },
-    dropdownText: { fontSize: 16, color: '#333' },
-    saveButton: {
-        backgroundColor: '#075E54',
-        padding: 12,
-        borderRadius: 8,
         alignItems: 'center',
-        marginTop: 20
-    },
-    saveButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-    modalOverlay: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.5)'
-    },
-    modalContainer: {
-        width: '80%',
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 20
-    },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, color: '#333' },
-    statusItem: { padding: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    statusText: { fontSize: 16, color: '#333' },
-    submitButton: {
-        backgroundColor: '#075E54',
+        marginBottom: 20,
+        borderBottomWidth: 1,
+        borderColor: '#ccc',
         padding: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginTop: 15
     },
-    submitButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+    dropdownContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    dropdownText: {
+        fontSize: 16,
+        color: '#333',
+        flex: 1,
+    },
+    dropdownIcon: {
+        marginLeft: 10, // Optional: Adds spacing between text and icon
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#075E54',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        marginTop: 20,
+        marginBottom: 20,
+        marginHorizontal: 20,
+        justifyContent: 'center',
+    },
+    disabledButton: {
+        backgroundColor: '#A9A9A9',
+        opacity: 0.6,
+    },
+    addButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+    },
     loadingContainer: {
         ...StyleSheet.absoluteFillObject,
         backgroundColor: 'rgba(255, 255, 255, 0.8)',
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
     },
-    loadingText: { marginTop: 10, fontSize: 16, color: '#333' },
-    errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginTop: 10 },
-    separator: { height: 1, backgroundColor: '#e0e0e0', marginVertical: 5 },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#333',
+    },
+    errorText: {
+        color: 'red',
+        fontSize: 16,
+        textAlign: 'center',
+        marginTop: 10,
+        paddingHorizontal: 20,
+    },
 });
 
-export default ManageOrderStatusScreen;
+export default ManageStatusScreen;

@@ -9,7 +9,9 @@ import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ClientsScreen from '../screens/ClientsScreen';
 import ManageClientScreen from '../screens/ManageClientScreen';
-import OrderStatusScreen from "../screens/OrderStatusScreen";
+import OrderStatusScreen from '../screens/OrderStatusScreen';
+import ManageOrderStatusScreen from '../screens/ManageOrderStatusScreen';
+import SelectAllowedStatusesScreen from '../screens/SelectAllowedStatusesScreen';
 
 const Stack = createStackNavigator();
 
@@ -91,6 +93,29 @@ const SettingsStackNavigator = () => {
                 component={OrderStatusScreen}
                 options={({ navigation, route }) => ({
                     title: route.params?.statusType === 'order' ? 'Order Status' : 'Repair Status',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="ManageOrderStatusScreen"
+                component={ManageOrderStatusScreen}
+                options={({ navigation, route }) => ({
+                    title: route.params?.status ? 'Edit Status' : 'Add Status',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="SelectAllowedStatuses"
+                component={SelectAllowedStatusesScreen}
+                options={({ navigation }) => ({
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
