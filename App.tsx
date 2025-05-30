@@ -5,7 +5,10 @@ import { createStackNavigator } from '@react-navigation/stack';
 import LoginScreen from './screens/LoginScreen';
 import BottomTabNavigator from './screens/BottomTabNavigator';
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
+import SelectCategoryScreen from "./screens/SelectCategoryScreen";
+import CreateOrderScreen from "./screens/CreateOrderScreen";
 import { AuthProvider, useAuth } from "./components/AuthContext";
+import ClientSelectorScreen from "./screens/ClientSelectorScreen";
 
 const Stack = createStackNavigator();
 
@@ -35,6 +38,39 @@ const AppNavigator = () => {
                 <Stack.Screen name="Login" component={LoginScreen} />
                 <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerTitle: 'Reset Password' }} />
                 <Stack.Screen name="Home" component={BottomTabNavigator} />
+                <Stack.Screen
+                    name="SelectCategory"
+                    component={SelectCategoryScreen}
+                    options={{
+                        headerShown: true,
+                        headerTitle: 'New Order',
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    }}
+                />
+                <Stack.Screen
+                    name="CreateOrder"
+                    component={CreateOrderScreen}
+                    options={{
+                        headerShown: true,
+                        headerTitle: 'New Order',
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    }}
+                />
+                <Stack.Screen
+                    name="ClientSelector"
+                    component={ClientSelectorScreen}
+                    options={{
+                        headerShown: true,
+                        headerTitle: 'Select Client',
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    }}
+                />
             </Stack.Navigator>
         </NavigationContainer>
     );

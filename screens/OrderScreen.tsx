@@ -10,7 +10,7 @@ const OrderScreen = ({ navigation }: any) => {
     const { data: ordersData, error, loading } = useAuthenticatedFetch(navigation, {
         url: API_URL,
         data: { "isOrderScreen": "true" },
-        autoFetch: true, // Ensure API is called on mount
+        autoFetch: true,
     });
 
     const calculateTotals = (states: any[]) => {
@@ -71,9 +71,9 @@ const OrderScreen = ({ navigation }: any) => {
             ) : ordersData ? (
                 <>
                     <Header
-                        title={ordersData.username || "User"} // Fallback if username is missing
+                        title={ordersData.username || "User"}
                         buttonText="Create Order"
-                        onPress={() => navigation.navigate('CreateOrder')}
+                        onPress={() => navigation.navigate('SelectCategory')} // Updated to navigate to SelectCategory
                     />
                     <FlatList
                         data={[...defaultTiles, ...adjustedStates]}
@@ -85,7 +85,7 @@ const OrderScreen = ({ navigation }: any) => {
                     />
                 </>
             ) : (
-                <Text style={styles.errorText}>No data available</Text> // Fallback for null data
+                <Text style={styles.errorText}>No data available</Text>
             )}
         </View>
     );
