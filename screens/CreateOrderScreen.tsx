@@ -52,7 +52,7 @@ const mapApiFieldsToFrontend = (apiFields) => {
         label: field.fieldName,
         options: field.validFieldValues || [],
         multiSelect: field.fieldType === 'MULTI_SELECT_DROPDOWN_OPTIONS',
-        ...(field.fieldType === 'RANGE' && { fromLabel: 'Min', toLabel: 'Max' }),
+        required: !!field.required,
     }));
 };
 
@@ -69,7 +69,6 @@ const CreateOrderScreen = ({ navigation, route }) => {
     // Explicitly disable autoFetch to prevent duplicate calls
     const { data: fieldsData, error, loading, fetchData } = useAuthenticatedFetch(navigation, {
         autoFetch: false,
-        url: 'POST'
     });
     const fetchDataRef = useRef(fetchData); // Stabilize fetchData with useRef
     const [selectedClient, setSelectedClient] = useState(null);
@@ -157,11 +156,28 @@ const CreateOrderScreen = ({ navigation, route }) => {
             return;
         }
 
-        const required = ['quantity', 'weightFrom', 'weightTo', 'priority'];
-        for (const key of required) {
+        // Validate static required fields
+        const requiredStaticFields = [
+            { key: 'quantity', label: 'Quantity' },
+            { key: 'weightFrom', label: 'Weight From' },
+            { key: 'weightTo', label: 'Weight To' },
+            { key: 'priority', label: 'Priority' },
+        ];
+        for (const { key, label } of requiredStaticFields) {
             if (!form[key]) {
-                Alert.alert('Error', `${key} is required`);
+                Alert.alert('Error', `${label} is required`);
                 return;
+            }
+        }
+
+        // Validate required dynamic fields
+        for (const field of dynamicFields) {
+            if (field.required) {
+                const value = form.dynamicFields[field.name];
+                if (!value || (Array.isArray(value) && value.length === 0)) {
+                    Alert.alert('Error', `${field.label} is required`);
+                    return;
+                }
             }
         }
 
@@ -251,6 +267,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
                     <QuantityInput
                         value={form.quantity}
                         onChange={(val) => handleChange('quantity', val)}
+                        required
                     />
                     <WeightRangeInput
                         required={true}

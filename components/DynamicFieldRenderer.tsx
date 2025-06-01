@@ -24,6 +24,7 @@ const DynamicFieldRenderer = ({ fields, values, onChange }: any) => {
                     key={field.name}
                     label={field.label}
                     value={value}
+                    required={field.required}
                     onChange={(text: string) => onChange(field.name, text)}
                     placeholder={`Enter ${field.label}`}
                 />
