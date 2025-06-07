@@ -5,6 +5,7 @@ import CategoriesScreen from '../screens/CategoriesScreen';
 import ManageCategoryScreen from '../screens/ManageCategoryScreen';
 import ViewFieldsScreen from '../screens/ViewFieldsScreen';
 import ManageCategoryFieldsScreen from '../screens/ManageCategoryFieldsScreen';
+import EditDropdownOptionsScreen from '../screens/EditDropdownOptionsScreen';
 import { TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ClientsScreen from '../screens/ClientsScreen';
@@ -57,6 +58,18 @@ const SettingsStackNavigator = () => {
                 component={ManageCategoryFieldsScreen}
                 options={({ navigation, route }) => ({
                     title: route.params?.field ? 'Edit Field' : 'Add Field',
+                    headerLeft: () => (
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
+                        </TouchableOpacity>
+                    ),
+                })}
+            />
+            <Stack.Screen
+                name="EditDropdownOptions"
+                component={EditDropdownOptionsScreen}
+                options={({ navigation, route }) => ({
+                    title: `Edit ${route.params?.field?.fieldName || 'Field'} Options`,
                     headerLeft: () => (
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
