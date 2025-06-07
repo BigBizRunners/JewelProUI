@@ -71,6 +71,7 @@ const ViewFieldsScreen = ({ navigation, route }) => {
     }, [navigation, isDeleting]);
 
     const navigateToEditDropdownOptions = (field) => {
+        setActionModalVisible(false);
         navigation.navigate('EditDropdownOptions', {
             field,
             categoryId,
@@ -200,11 +201,7 @@ const ViewFieldsScreen = ({ navigation, route }) => {
             <Text style={styles.fieldName}>{item.fieldName}</Text>
             <View style={styles.fieldTypeContainer}>
                 <Text style={styles.fieldType}>{normalizeFieldType(item.fieldType)}</Text>
-                {(item.fieldType === "DROPDOWN_OPTIONS" || item.fieldType === "MULTI_SELECT_DROPDOWN_OPTIONS") && (
-                    <TouchableOpacity onPress={() => navigateToEditDropdownOptions(item)}>
-                        <MaterialCommunityIcons name="pencil" size={20} color="#075E54" />
-                    </TouchableOpacity>
-                )}
+                <MaterialCommunityIcons name="chevron-right" size={20} color="#666" />
             </View>
         </TouchableOpacity>
     );
@@ -251,6 +248,11 @@ const ViewFieldsScreen = ({ navigation, route }) => {
                         <TouchableOpacity style={styles.modalOption} onPress={handleModifyField} disabled={isDeleting}>
                             <Text style={styles.modalOptionText}>Modify Field</Text>
                         </TouchableOpacity>
+                        {(selectedField?.fieldType === "DROPDOWN_OPTIONS" || selectedField?.fieldType === "MULTI_SELECT_DROPDOWN_OPTIONS") && (
+                            <TouchableOpacity style={styles.modalOption} onPress={() => navigateToEditDropdownOptions(selectedField)} disabled={isDeleting}>
+                                <Text style={styles.modalOptionText}>Edit Options</Text>
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity style={styles.modalOption} onPress={handleDeleteField} disabled={isDeleting}>
                             <Text style={[styles.modalOptionText, { color: 'red' }]}>Delete Field</Text>
                         </TouchableOpacity>
