@@ -79,7 +79,7 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
                     ...fetchOptions.headers,
                 },
             });
-            console.log("API response:", response.data);
+            console.log("API response:", JSON.stringify(response.data));
 
             setData(response.data);
             return response.data;

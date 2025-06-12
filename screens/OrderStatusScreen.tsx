@@ -13,7 +13,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 const GET_ORDER_STATUSES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getOrderStatuses";
-const HANDLE_STATUS_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/handleStatusOperation";
+const HANDLE_STATUS_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageStatus";
 
 const OrderStatusScreen = ({ navigation, route }: any) => {
     const { statusType = 'order' } = route.params || {};
@@ -26,7 +26,7 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
 
     const [orderStatuses, setOrderStatuses] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
-    const [selectedStatus, setSelectedStatus] = useState(null);
+    const [selectedStatus, setSelectedStatus] = useState<any>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
     useEffect(() => {
@@ -47,16 +47,13 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
         setSelectedStatus(null);
     };
 
+    // --- UPDATED ---
     const handleEditStatus = () => {
         if (selectedStatus) {
             navigation.navigate('ManageOrderStatusScreen', {
-                status: selectedStatus,
+                status: selectedStatus, // Pass the full status object, which includes 'allowedNextStatusList'
                 statusType,
-                allStatuses: orderStatuses.map(s => ({
-                    statusId: s.statusId,
-                    statusName: s.name,
-                    isSelected: s.statusId === selectedStatus.statusId || (selectedStatus.allowedStatusChanges || []).includes(s.statusId),
-                })),
+                allStatuses: orderStatuses, // Pass the clean, original list of all statuses
             });
         }
         hideModal();
@@ -98,7 +95,7 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
                             setDeleteLoading(false);
 
                             if (response && response.status === 'success') {
-                                setOrderStatuses(orderStatuses.filter(s => s.statusId !== selectedStatus.statusId));
+                                setOrderStatuses(orderStatuses.filter((s: any) => s.statusId !== selectedStatus.statusId));
                                 Alert.alert('Success', 'Status deleted successfully');
                             } else {
                                 Alert.alert('Error', response.responseMessage || 'Failed to delete status');
@@ -173,7 +170,7 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
             <FlatList
                 data={orderStatuses}
                 renderItem={renderStatusItem}
-                keyExtractor={(item) => item.statusId}
+                keyExtractor={(item: any) => item.statusId}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={<Text style={styles.emptyText}>No statuses available</Text>}

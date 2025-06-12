@@ -9,32 +9,33 @@ import {
     KeyboardAvoidingView,
     ScrollView,
     StyleSheet,
-    Platform, ActivityIndicator,
+    Platform,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch'; // Import the custom hook
 
-const MANAGE_STATUS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageStatus";
+// Use the same API endpoint as defined in OrderStatusScreen for consistency
+const HANDLE_STATUS_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/manageStatus";
 
-// Note: This version uses a callback in navigation params, triggering a non-serializable warning.
-// Consider using result-based navigation (await navigation.navigate) with React Navigation 5+
-// if state persistence or deep linking is needed. See troubleshooting guide for details.
-// Temporarily removed useAuthenticatedFetch to isolate hook error.
 const ManageStatusScreen = ({ navigation, route }: any) => {
     const { status, statusType, allStatuses } = route.params || { status: null, statusType: 'order', allStatuses: [] };
+
+    // Use the authenticated fetch hook
+    const { fetchData, loading, error: fetchError } = useAuthenticatedFetch(navigation);
+
     const [statusName, setStatusName] = useState(status?.name || '');
     const [position, setPosition] = useState(status?.position?.toString() || '');
-    const [showInPendingOrders, setShowInPendingOrders] = useState(status?.showInPendingOrders || false);
+    const [showInPendingOrders, setShowInPendingOrders] = useState(status?.showInPending || false);
+
+    const existingAllowedIds = status?.allowedNextStatusList || [];
     const [allowedStatusChanges, setAllowedStatusChanges] = useState<{ statusId: string; statusName: string; isSelected: boolean }[]>(
-        status?.allowedStatusChanges
-            ? allStatuses.map(s => ({
-                statusId: s.statusId,
-                statusName: s.statusName || s.name,
-                isSelected: (status.allowedStatusChanges || []).includes(s.statusId),
-            }))
-            : allStatuses.map(s => ({ statusId: s.statusId, statusName: s.statusName || s.name, isSelected: false }))
+        allStatuses.map((s: any) => ({
+            statusId: s.statusId,
+            statusName: s.name || s.statusName,
+            isSelected: existingAllowedIds.includes(s.statusId),
+        }))
     );
-    const [saveLoading, setSaveLoading] = useState(false);
-    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         navigation.setOptions({
@@ -53,13 +54,11 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
             selectedStatuses: allowedStatusChanges.filter(s => s.isSelected),
             currentStatusId: status?.statusId,
             onSave: (selectedStatuses: { statusId: string; statusName: string; isSelected: boolean }[]) => {
-                console.log('Callback received selected statuses:', selectedStatuses);
-                const updatedStatuses = allStatuses.map(s => {
+                const updatedStatuses = allStatuses.map((s: any) => {
                     const matchingStatus = selectedStatuses.find(ns => ns.statusId === s.statusId);
-                    return matchingStatus ? { ...s, isSelected: matchingStatus.isSelected } : { ...s, isSelected: false };
+                    return { ...s, statusName: s.name || s.statusName, isSelected: !!matchingStatus };
                 });
                 setAllowedStatusChanges(updatedStatuses);
-                console.log('Updated allowedStatusChanges state:', updatedStatuses);
             },
         });
     };
@@ -73,48 +72,45 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
             Alert.alert('Error', 'Position must be a valid number');
             return;
         }
-        console.log('it came here');
 
-        setSaveLoading(true);
-        setSaveError(null);
+        // Determine the operation type based on whether a status object exists
+        const operation = status ? 'modify' : 'add';
 
+        // Construct the request data to match the backend's ModifyOrderStatusRequest model
         const requestData = {
-            operation: status ? 'update' : 'add',
+            operation,
             statusType,
-            status: {
-                statusId: status?.statusId || '',
-                name: statusName,
-                position: Number(position),
-                showInPendingOrders,
-                allowedStatusChanges: allowedStatusChanges.filter(s => s.isSelected).map(s => s.statusId),
-            },
+            // Only include statusId for modify operations
+            ...(status ? { statusId: status.statusId } : {}),
+            name: statusName,
+            position: Number(position),
+            showInPending: showInPendingOrders,
+            // Use the correct key 'allowedNextStatusList' and map to an array of IDs
+            allowedNextStatusList: allowedStatusChanges.filter(s => s.isSelected).map(s => s.statusId),
         };
 
         try {
-            console.log('Request Data:', JSON.stringify(requestData));
-            // Temporary replacement for useAuthenticatedFetch
-            const response = await fetch(MANAGE_STATUS_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // Add authentication headers if needed (e.g., token)
-                    // 'Authorization': `Bearer your-token-here`,
-                },
-                body: JSON.stringify(requestData),
-            });
-            const data = await response.json();
+            console.log('Request Data:', JSON.stringify(requestData, null, 2));
 
-            if (!response.ok || (data && data.status === 'failure')) {
-                Alert.alert('Error', 'Failed to save status');
-            } else {
-                Alert.alert('Success', `Status ${status ? 'updated' : 'added'} successfully`);
-                navigation.goBack();
+            // Use the fetchData function from the hook
+            const responseData = await fetchData({
+                url: HANDLE_STATUS_OPERATION_API_URL,
+                method: 'POST',
+                data: requestData,
+            });
+
+            console.log("Response is ==> " + JSON.stringify(responseData));
+
+            if (responseData && responseData.status === "success") {
+                Alert.alert("Success", responseData.responseMessage || `Status ${operation === 'modify' ? 'updated' : 'added'} successfully`);
+                navigation.goBack(); // Go back to the previous screen
+            } else if (responseData && responseData.status === "failure") {
+                Alert.alert("Error", responseData.responseMessage || `Failed to ${operation} status`);
             }
-        } catch (err) {
-            console.log('Fetch error:', err);
-            setSaveError('An unexpected error occurred');
-        } finally {
-            setSaveLoading(false);
+        } catch (error) {
+            // The hook already sets the error state, but we can log for debugging
+            console.log("Save error:", error);
+            Alert.alert("Error", `An unexpected error occurred while trying to ${operation} the status.`);
         }
     };
 
@@ -123,7 +119,8 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
     };
 
     const isUpdate = !!status;
-    const buttonText = saveLoading ? (isUpdate ? 'Updating...' : 'Adding...') : (isUpdate ? 'Update Status' : 'Add Status');
+    // Use the 'loading' state from the hook
+    const buttonText = loading ? (isUpdate ? 'Updating...' : 'Adding...') : (isUpdate ? 'Update Status' : 'Add Status');
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container} keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}>
@@ -134,7 +131,7 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
                     placeholder="Enter status name"
                     value={statusName}
                     onChangeText={setStatusName}
-                    editable={!saveLoading}
+                    editable={!loading}
                 />
                 <Text style={styles.label}>Position <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -143,10 +140,10 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
                     value={position}
                     onChangeText={setPosition}
                     keyboardType="numeric"
-                    editable={!saveLoading}
+                    editable={!loading}
                 />
                 <Text style={styles.label}>Allows Status Change</Text>
-                <TouchableOpacity style={styles.input} onPress={handleSelectStatuses} disabled={saveLoading}>
+                <TouchableOpacity style={styles.input} onPress={handleSelectStatuses} disabled={loading}>
                     <View style={styles.dropdownContainer}>
                         <Text style={styles.dropdownText}>
                             {allowedStatusChanges.filter(s => s.isSelected).length > 0
@@ -161,27 +158,27 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
                     <Switch
                         value={showInPendingOrders}
                         onValueChange={setShowInPendingOrders}
-                        disabled={saveLoading}
+                        disabled={loading}
                         trackColor={{ false: "#767577", true: "#075E54" }}
                         thumbColor={showInPendingOrders ? "#f4f3f4" : "#f4f3f4"}
                     />
                 </View>
             </ScrollView>
             <TouchableOpacity
-                style={[styles.addButton, (!isFormValid() || saveLoading) ? styles.disabledButton : null]}
+                style={[styles.addButton, (!isFormValid() || loading) ? styles.disabledButton : null]}
                 onPress={handleSave}
-                disabled={!isFormValid() || saveLoading}
+                disabled={!isFormValid() || loading}
                 activeOpacity={0.7}
             >
                 <Text style={styles.addButtonText}>{buttonText}</Text>
             </TouchableOpacity>
-            {saveLoading && (
+            {loading && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
                     <Text style={styles.loadingText}>Saving...</Text>
                 </View>
             )}
-            {saveError && <Text style={styles.errorText}>{saveError}</Text>}
+            {fetchError && <Text style={styles.errorText}>{fetchError}</Text>}
         </KeyboardAvoidingView>
     );
 };
@@ -233,7 +230,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     dropdownIcon: {
-        marginLeft: 10, // Optional: Adds spacing between text and icon
+        marginLeft: 10,
     },
     addButton: {
         flexDirection: 'row',
