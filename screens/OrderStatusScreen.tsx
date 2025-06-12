@@ -10,6 +10,7 @@ import {
     Alert,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 const GET_ORDER_STATUSES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getOrderStatuses";
@@ -17,25 +18,39 @@ const HANDLE_STATUS_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south
 
 const OrderStatusScreen = ({ navigation, route }: any) => {
     const { statusType = 'order' } = route.params || {};
-    const { data: responseData, error: fetchError, loading: initialLoading, fetchData } = useAuthenticatedFetch(navigation, {
-        url: GET_ORDER_STATUSES_API_URL,
-        method: 'POST',
-        data: { statusType },
-        autoFetch: true,
-    });
+    // Removed autoFetch from the hook to control fetching manually with useFocusEffect
+    const { data: responseData, error: fetchError, loading: initialLoading, fetchData } = useAuthenticatedFetch(navigation);
 
     const [orderStatuses, setOrderStatuses] = useState([]);
     const [modalVisible, setModalVisible] = useState(false);
     const [selectedStatus, setSelectedStatus] = useState<any>(null);
     const [deleteLoading, setDeleteLoading] = useState(false);
 
-    useEffect(() => {
-        if (!initialLoading && responseData && responseData.orderStatuses) {
-            setOrderStatuses(responseData.orderStatuses);
-        } else if (fetchError) {
-            Alert.alert('Error', `Failed to load statuses: ${fetchError}`);
-        }
-    }, [responseData, initialLoading, fetchError]);
+    // --- FIX: Use useFocusEffect to refresh data when the screen is focused ---
+    useFocusEffect(
+        useCallback(() => {
+            const getStatuses = async () => {
+                console.log("OrderStatusScreen focused, fetching statuses...");
+                const data = await fetchData({
+                    url: GET_ORDER_STATUSES_API_URL,
+                    method: 'POST',
+                    data: { statusType },
+                });
+                if (data && data.orderStatuses) {
+                    setOrderStatuses(data.orderStatuses);
+                } else if (data && data.status === 'failure') {
+                    Alert.alert('Error', data.responseMessage || 'Failed to load statuses');
+                }
+            };
+
+            getStatuses();
+
+            return () => {
+                // Optional: cleanup logic if needed when the screen goes out of focus
+                console.log("OrderStatusScreen unfocused.");
+            };
+        }, []) // Empty dependency array ensures this runs on first render and on every focus
+    );
 
     const showModal = (item: any) => {
         setSelectedStatus(item);
@@ -47,13 +62,12 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
         setSelectedStatus(null);
     };
 
-    // --- UPDATED ---
     const handleEditStatus = () => {
         if (selectedStatus) {
             navigation.navigate('ManageOrderStatusScreen', {
-                status: selectedStatus, // Pass the full status object, which includes 'allowedNextStatusList'
+                status: selectedStatus,
                 statusType,
-                allStatuses: orderStatuses, // Pass the clean, original list of all statuses
+                allStatuses: orderStatuses,
             });
         }
         hideModal();
@@ -63,7 +77,7 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
         navigation.navigate('ManageOrderStatusScreen', {
             status: null,
             statusType,
-            allStatuses: orderStatuses.map(s => ({ statusId: s.statusId, statusName: s.name, isSelected: false })),
+            allStatuses: orderStatuses,
         });
         hideModal();
     };
@@ -86,6 +100,7 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
                                 statusId: selectedStatus.statusId,
                                 statusType,
                             };
+                            // Use the same fetchData instance for the delete operation
                             const response = await fetchData({
                                 url: HANDLE_STATUS_OPERATION_API_URL,
                                 method: 'POST',
@@ -95,10 +110,11 @@ const OrderStatusScreen = ({ navigation, route }: any) => {
                             setDeleteLoading(false);
 
                             if (response && response.status === 'success') {
+                                // Manually remove the deleted status from the list for immediate UI update
                                 setOrderStatuses(orderStatuses.filter((s: any) => s.statusId !== selectedStatus.statusId));
                                 Alert.alert('Success', 'Status deleted successfully');
                             } else {
-                                Alert.alert('Error', response.responseMessage || 'Failed to delete status');
+                                Alert.alert('Error', response?.responseMessage || 'Failed to delete status');
                             }
                         } catch (error) {
                             setDeleteLoading(false);
