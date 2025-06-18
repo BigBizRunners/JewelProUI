@@ -9,6 +9,7 @@ import SelectCategoryScreen from "./screens/SelectCategoryScreen";
 import CreateOrderScreen from "./screens/CreateOrderScreen";
 import { AuthProvider, useAuth } from "./components/AuthContext";
 import ClientSelectorScreen from "./screens/ClientSelectorScreen";
+import OrderSuccessScreen from "./screens/OrderSuccessScreen";
 
 const Stack = createStackNavigator();
 
@@ -70,6 +71,11 @@ const AppNavigator = () => {
                         headerTintColor: '#fff',
                         headerTitleStyle: { fontWeight: 'bold' },
                     }}
+                />
+                <Stack.Screen
+                    name="OrderSuccess"
+                    component={OrderSuccessScreen}
+                    options={{ headerShown: false }}
                 />
             </Stack.Navigator>
         </NavigationContainer>

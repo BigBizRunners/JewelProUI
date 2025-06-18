@@ -140,7 +140,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
         setSubmissionLoading(true);
 
         try {
-            // --- FIX: Normalize file objects before processing ---
+            // --- Normalize file objects before processing ---
             const allFiles = [...mediaFiles, ...pdfFiles].map((file, index) => {
                 if (!file.uri) {
                     console.error("File at index", index, "is missing a URI:", file);
@@ -210,9 +210,12 @@ const CreateOrderScreen = ({ navigation, route }) => {
                 data: orderData,
             });
 
+            // --- UPDATED: Navigate to success screen on success ---
             if (createOrderResponse?.status === 'success') {
-                Alert.alert('Success', 'Order created successfully!');
-                navigation.navigate('OrdersMain');
+                // Use 'replace' to prevent the user from navigating back to the form
+                navigation.replace('OrderSuccess', {
+                    orderId: createOrderResponse.orderId,
+                });
             } else {
                 throw new Error(createOrderResponse?.errorMessage || 'Order creation failed.');
             }
@@ -269,7 +272,6 @@ const CreateOrderScreen = ({ navigation, route }) => {
                     <DynamicFieldRenderer fields={dynamicFields} values={form.dynamicFields} onChange={handleDynamicFieldChange} />
                 </ScrollView>
             )}
-            {/* --- FIX: Use the combined 'isLoading' state to control button visibility --- */}
             {!isLoading && !error && (
                 <TouchableOpacity style={[styles.submitButton, submissionLoading && styles.disabledButton]} onPress={handleSubmit} disabled={submissionLoading}>
                     <Text style={styles.submitButtonText}>Submit</Text>
