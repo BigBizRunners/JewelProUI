@@ -14,6 +14,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
+// Import the new reusable component
+import ProgressHeader from '../components/ProgressHeader';
+
 import DateInput from '../components/DateInput';
 import TextInputField from '../components/TextInputField';
 import QuantityInput from '../components/QuantityInput';
@@ -27,6 +30,7 @@ const GET_CATEGORY_FIELDS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.a
 const GET_PRESIGNED_URL_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getPresignedUrls';
 const CREATE_ORDER_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/createOrder';
 
+// --- REMOVED ProgressHeader component and headerStyles from here ---
 
 // Map backend FieldType to frontend field type
 const mapFieldType = (backendType) => {
@@ -212,7 +216,6 @@ const CreateOrderScreen = ({ navigation, route }) => {
 
             // --- UPDATED: Navigate to success screen on success ---
             if (createOrderResponse?.status === 'success') {
-                // Use 'replace' to prevent the user from navigating back to the form
                 navigation.replace('OrderSuccess', {
                     orderId: createOrderResponse.orderId,
                 });
@@ -231,6 +234,8 @@ const CreateOrderScreen = ({ navigation, route }) => {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            {/* Use the new component */}
+            <ProgressHeader title="Create Order" currentStep={2} totalSteps={2} />
             {isLoading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#075E54" />

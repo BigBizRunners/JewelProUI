@@ -9,6 +9,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
+import ProgressHeader from '../components/ProgressHeader'; // Import the new component
 
 const GET_CATEGORIES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getCategoriesByUser";
 
@@ -44,27 +45,27 @@ const SelectCategoryScreen = ({ navigation }: any) => {
 
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.headerContainer}>
-                <Text style={styles.headerTitle}>Select Product Category</Text>
-                <Text style={styles.stepText}>Step 1 of 2</Text>
-            </View>
+            {/* --- REPLACED HEADER --- */}
+            <ProgressHeader title="Select Category" currentStep={1} totalSteps={2} />
 
-            {loading && categories.length === 0 ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#0000ff" />
-                    <Text style={styles.loadingText}>Loading categories...</Text>
-                </View>
-            ) : error ? (
-                <Text style={styles.errorText}>{error}</Text>
-            ) : (
-                <FlatList
-                    data={categories}
-                    keyExtractor={(item) => item.categoryId}
-                    renderItem={renderItem}
-                    ItemSeparatorComponent={() => <View style={styles.separator} />}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                />
-            )}
+            <View style={styles.contentContainer}>
+                {loading && categories.length === 0 ? (
+                    <View style={styles.loadingContainer}>
+                        <ActivityIndicator size="large" color="#0000ff" />
+                        <Text style={styles.loadingText}>Loading categories...</Text>
+                    </View>
+                ) : error ? (
+                    <Text style={styles.errorText}>{error}</Text>
+                ) : (
+                    <FlatList
+                        data={categories}
+                        keyExtractor={(item) => item.categoryId}
+                        renderItem={renderItem}
+                        ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                    />
+                )}
+            </View>
         </SafeAreaView>
     );
 };
@@ -73,32 +74,14 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f9f9f9',
-        paddingHorizontal: 10,
+    },
+    contentContainer: {
+        flex: 1,
+        paddingHorizontal: 15,
         paddingTop: 20,
     },
-    headerContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#075E54',
-        paddingVertical: 15,
-        paddingHorizontal: 10,
-        marginBottom: 20,
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#fff',
-    },
-    stepText: {
-        fontSize: 14,
-        color: '#fff',
-        borderWidth: 1,
-        borderColor: '#fff',
-        borderRadius: 15,
-        paddingVertical: 4,
-        paddingHorizontal: 10,
-    },
+    // --- REMOVED OLD HEADER STYLES ---
+    // headerContainer, headerTitle, stepText are no longer needed.
     categoryItem: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -134,7 +117,7 @@ const styles = StyleSheet.create({
         color: 'red',
         fontSize: 16,
         textAlign: 'center',
-        marginBottom: 10,
+        marginTop: 20,
     },
 });
 

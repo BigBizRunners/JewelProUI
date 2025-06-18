@@ -23,44 +23,69 @@ const OrderScreen = ({ navigation }: any) => {
             allOrders.weightFrom += state.weightFrom;
             allOrders.weightTo += state.weightTo;
 
-            if (state.isPendingState) {
+            if (state.pendingState) { // Corrected from isPendingState to match API response
                 pendingOrders.noOfOrders += state.noOfOrders;
                 pendingOrders.totalQuantity += state.totalQuantity;
                 pendingOrders.weightFrom += state.weightFrom;
                 pendingOrders.weightTo += state.weightTo;
             }
         });
-
         return { allOrders, pendingOrders };
     };
 
-    const orderStates = ordersData?.ordersPerState?.ordersPerState || [];
+    // --- FIX: Map API response to a standardized format with an 'id' key ---
+    const rawStates = ordersData?.ordersPerState?.ordersPerState || [];
+    const orderStates = rawStates.map(state => ({
+        ...state,
+        id: state.orderStateId, // Standardize 'orderStateId' to 'id'
+    }));
+
     const { allOrders, pendingOrders } = calculateTotals(orderStates);
 
+    const defaultTiles = [
+        { id: 'allOrders', orderStateName: 'All Orders', ...allOrders, color: '#28a745' },
+        { id: 'pendingOrders', orderStateName: 'Pending Orders', ...pendingOrders, color: 'rgb(244,68,102)' },
+    ];
+
+    const uniqueById = (arr) => {
+        const seen = new Set();
+        return arr.filter(item => {
+            if (!item || typeof item.id === 'undefined') return false;
+            const k = item.id;
+            return seen.has(k) ? false : seen.add(k);
+        });
+    };
+
+    const statesForTabs = uniqueById([...defaultTiles, ...orderStates]);
+
     const adjustedStates = orderStates.length % 2 !== 0
-        ? [...orderStates, { id: 'placeholder', orderStateName: '', orders: 0, quantity: 0, weightFrom: 0, weightTo: 0, isPendingState: false, color: 'transparent' }]
+        ? [...orderStates, { id: 'placeholder', orderStateName: '' }]
         : orderStates;
 
+    const dataForGrid = [...defaultTiles, ...adjustedStates];
+
     const renderTile = ({ item }: any) => {
-        if (item.id === 'placeholder') return <View style={[styles.tile, { backgroundColor: 'transparent' }]} />;
-        const tileColor = item.id === 'allOrders' ? '#28a745' : item.id === 'pendingOrders' ? 'rgb(244,68,102)' : '#ffffff';
-        const weightRange = `${item.weightFrom} - ${item.weightTo} gms`;
+        if (item.id === 'placeholder') {
+            return <View style={[styles.tile, { backgroundColor: 'transparent' }]} />;
+        }
+
+        const weightRange = `${item.weightFrom || 0} - ${item.weightTo || 0} gms`;
+
         return (
             <Tile
                 title={item.orderStateName}
                 orders={item.noOfOrders}
                 quantity={item.totalQuantity}
                 weight={weightRange}
-                color={tileColor}
-                onPress={() => console.log(`${item.orderStateName} clicked`)}
+                color={item.color || '#ffffff'}
+                onPress={() => navigation.navigate('ListOrders', {
+                    selectedStateId: item.id,
+                    allStates: statesForTabs,
+                    title: item.orderStateName
+                })}
             />
         );
     };
-
-    const defaultTiles = [
-        { id: 'allOrders', orderStateName: 'All Orders', noOfOrders: allOrders.noOfOrders, totalQuantity: allOrders.totalQuantity, weightFrom: allOrders.weightFrom, weightTo: allOrders.weightTo, isPendingState: false, color: '#28a745' },
-        { id: 'pendingOrders', orderStateName: 'Pending Orders', noOfOrders: pendingOrders.noOfOrders, totalQuantity: pendingOrders.totalQuantity, weightFrom: pendingOrders.weightFrom, weightTo: pendingOrders.weightTo, isPendingState: true, color: 'rgb(244,68,102)' },
-    ];
 
     return (
         <View style={styles.container}>
@@ -73,12 +98,12 @@ const OrderScreen = ({ navigation }: any) => {
                     <Header
                         title={ordersData.username || "User"}
                         buttonText="Create Order"
-                        onPress={() => navigation.navigate('SelectCategory')} // Updated to navigate to SelectCategory
+                        onPress={() => navigation.navigate('SelectCategory')}
                     />
                     <FlatList
-                        data={[...defaultTiles, ...adjustedStates]}
+                        data={dataForGrid}
                         renderItem={renderTile}
-                        keyExtractor={(item) => item.id}
+                        keyExtractor={(item) => String(item.id)}
                         numColumns={2}
                         columnWrapperStyle={styles.row}
                         contentContainerStyle={styles.list}
@@ -95,9 +120,9 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f7f7f7', paddingHorizontal: 10, paddingTop: 20 },
     list: { paddingBottom: 20, paddingTop: 10 },
     row: { justifyContent: 'space-between' },
-    tile: { flex: 1, margin: 8, padding: 15, borderRadius: 10, height: Dimensions.get('window').height / 6.5, backgroundColor: '#fff' },
+    tile: { flex: 1, margin: 8, minHeight: Dimensions.get('window').height / 6.5 },
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 10 },
-    loading: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: Dimensions.get('window').height / 3 },
+    loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 export default OrderScreen;
