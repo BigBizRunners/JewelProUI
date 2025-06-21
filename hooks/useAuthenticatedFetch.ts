@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import jwtDecode from 'jwt-decode';
@@ -13,12 +13,18 @@ interface FetchOptions {
     autoFetch?: boolean;
 }
 
+let isNavigatingToLogin = false;
+
 const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
     const [data, setData] = useState<any>(null);
     const [error, setError] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(options?.autoFetch ? true : false);
     const [hasCheckedSession, setHasCheckedSession] = useState(false);
     const { isAuthenticated, refreshSession } = useAuth();
+
+    // Use a ref to ensure we don't cause re-renders with this flag.
+    const componentIsMounted = useRef(true);
+
 
     const isTokenExpired = (token: string): boolean => {
         try {
@@ -30,43 +36,49 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
         }
     };
 
+    const handleLogoutNavigation = () => {
+        // Only trigger navigation if another hook instance hasn't already.
+        if (!isNavigatingToLogin) {
+            isNavigatingToLogin = true;
+            Alert.alert("Session Expired", "Please login again", [
+                { text: "OK", onPress: () => {
+                        navigation.replace("Login");
+                        // Reset the flag after navigation to allow for future logins.
+                        setTimeout(() => isNavigatingToLogin = false, 500);
+                    }},
+            ]);
+        }
+    };
+
     const fetchData = async (fetchOptions: FetchOptions) => {
+        // If a logout navigation is already in progress, stop immediately.
+        if (isNavigatingToLogin) return null;
+
         setLoading(true);
         try {
             console.log("Fetching data for fetch options " + JSON.stringify(fetchOptions));
-            const storedToken = await AsyncStorage.getItem("authToken");
-            let token = storedToken;
+            let token = await AsyncStorage.getItem("authToken");
 
-            const authenticated = await isAuthenticated();
-            if (!authenticated || !token) {
-                console.log("Not authenticated or no token, attempting refresh...");
+            // Check if the session is valid, if not, try to refresh it.
+            if (!token || isTokenExpired(token)) {
+                console.log("Token missing or expired, attempting refresh...");
                 try {
                     await refreshSession();
                     token = await AsyncStorage.getItem("authToken");
-                    console.log("Token after refresh attempt:", token);
                 } catch (refreshError) {
+                    console.error("Session refresh failed:", refreshError);
                     setError("Session expired, please log in again");
-                    Alert.alert("Session Expired", "Please login again", [
-                        { text: "OK", onPress: () => navigation.replace("Login") },
-                    ]);
+                    handleLogoutNavigation();
                     return null;
                 }
             }
 
+            // If after a potential refresh, we still have no token, the session is invalid.
             if (!token) {
-                console.log("No token available after refresh");
+                console.log("No token available after refresh attempt.");
                 setError("No token available, please log in");
-                Alert.alert("Session Expired", "Please login again", [
-                    { text: "OK", onPress: () => navigation.replace("Login") },
-                ]);
+                handleLogoutNavigation();
                 return null;
-            }
-
-            if (isTokenExpired(token)) {
-                console.log("Token expired, refreshing...");
-                await refreshSession();
-                token = await AsyncStorage.getItem("authToken");
-                console.log("New token:", token);
             }
 
             const response = await axios({
@@ -79,30 +91,45 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
                     ...fetchOptions.headers,
                 },
             });
-            console.log("API response:", JSON.stringify(response.data));
 
-            setData(response.data);
+            if (componentIsMounted.current) {
+                console.log("API response:", JSON.stringify(response.data));
+                setData(response.data);
+            }
             return response.data;
-        } catch (error) {
-            console.error("Fetch error:", error);
-            // @ts-ignore
-            setError("Failed to fetch: " + (error.message || "Unknown error"));
+        } catch (err) {
+            if (axios.isAxiosError(err) && err.response?.status === 401) {
+                // Handle cases where the token became invalid between checks.
+                console.error("Unauthorized (401) error during fetch:", err);
+                handleLogoutNavigation();
+            } else {
+                console.error("Fetch error:", err);
+                if (componentIsMounted.current) {
+                    // @ts-ignore
+                    setError("Failed to fetch: " + (err.message || "Unknown error"));
+                }
+            }
             return null;
         } finally {
-            setLoading(false);
-            setHasCheckedSession(true);
+            if (componentIsMounted.current) {
+                setLoading(false);
+                setHasCheckedSession(true);
+            }
         }
     };
 
     useEffect(() => {
-        if (!options?.autoFetch || hasCheckedSession) return;
+        componentIsMounted.current = true;
 
-        const checkSessionAndFetch = async () => {
-            await fetchData(options);
+        if (options?.autoFetch && !hasCheckedSession) {
+            fetchData(options);
+        }
+
+        // Cleanup function to set the mounted ref to false when the component unmounts.
+        return () => {
+            componentIsMounted.current = false;
         };
-
-        checkSessionAndFetch();
-    }, [navigation, hasCheckedSession, options?.url, options?.method, options?.data, options?.autoFetch]);
+    }, [navigation, hasCheckedSession, options?.url]); // Simplified dependencies
 
     return { data, error, loading, fetchData };
 };

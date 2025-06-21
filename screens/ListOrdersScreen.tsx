@@ -25,15 +25,15 @@ const formatDueDate = (dueDateStr) => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-        return { text: `Overdue by ${Math.abs(diffDays)} days`, color: '#d9534f' }; // Red for overdue
+        return { text: `Overdue by ${Math.abs(diffDays)} days`, color: '#d9534f' };
     } else if (diffDays === 0) {
-        return { text: 'Due Today', color: '#f0ad4e' }; // Orange for due today
+        return { text: 'Due Today', color: '#f0ad4e' };
     } else {
-        return { text: `Due in ${diffDays} days`, color: '#5cb85c' }; // Green for upcoming
+        return { text: `Due in ${diffDays} days`, color: '#5cb85c' };
     }
 };
 
-// Updated OrderItem component to display all new details
+// This component now reflects the detailed layout with all fields restored.
 const OrderItem = React.memo(({ item }) => {
     const dueDateInfo = formatDueDate(item.deliveryDueDate);
 
@@ -49,26 +49,39 @@ const OrderItem = React.memo(({ item }) => {
             )}
             {/* Details Container on the right */}
             <View style={styles.detailsContainer}>
+                {/* Top Row: Order ID and Status */}
                 <View style={styles.orderItemHeader}>
-                    <Text style={styles.clientName} numberOfLines={1}>{item.clientName}</Text>
-                    <Text style={styles.orderId} numberOfLines={1}>{item.orderId}</Text>
+                    <Text style={styles.orderId}>
+                        {`#${item.orderId ? item.orderId.substring(0, 8) : 'N/A'}...`}
+                    </Text>
+                    {item.statusName && (
+                        <View style={styles.statusPill}>
+                            <Text style={styles.statusPillText}>{item.statusName}</Text>
+                        </View>
+                    )}
                 </View>
 
-                <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="tag-outline" size={16} color="#666" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>{item.categoryName || 'N/A'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="account-outline" size={16} color="#666" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>By: {item.placedBy || 'N/A'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="calendar-import" size={16} color="#666" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>Created: {item.orderDate || 'N/A'}</Text>
-                </View>
-                <View style={styles.detailRow}>
-                    <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#666" style={styles.detailIcon} />
-                    <Text style={styles.detailText}>Due: {item.deliveryDueDate || 'N/A'}</Text>
+                {/* Client Name */}
+                <Text style={styles.clientName} numberOfLines={1}>{item.clientName}</Text>
+
+                <View style={styles.detailSection}>
+                    <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="tag-outline" size={16} color="#666" style={styles.detailIcon} />
+                        <Text style={styles.detailText}>{item.categoryName || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="account-outline" size={16} color="#666" style={styles.detailIcon} />
+                        <Text style={styles.detailText}>By: {item.placedBy || 'N/A'}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="calendar-import" size={16} color="#666" style={styles.detailIcon} />
+                        <Text style={styles.detailText}>Created: {item.orderDate || 'N/A'}</Text>
+                    </View>
+                    {/* Restored Due Date detail row */}
+                    <View style={styles.detailRow}>
+                        <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#666" style={styles.detailIcon} />
+                        <Text style={styles.detailText}>Due: {item.deliveryDueDate || 'N/A'}</Text>
+                    </View>
                 </View>
 
                 <View style={styles.orderItemFooter}>
@@ -82,6 +95,7 @@ const OrderItem = React.memo(({ item }) => {
         </View>
     );
 });
+
 
 const ListOrdersScreen = ({ route, navigation }) => {
     const { selectedStateId: initialStateId, allStates: initialStates } = route.params;
@@ -203,24 +217,40 @@ const styles = StyleSheet.create({
     },
     thumbnail: {
         width: 100,
-        height: 'auto', // Let height be automatic based on aspect ratio
-        aspectRatio: 1, // Maintain a square aspect ratio
+        height: 'auto',
+        aspectRatio: 1,
         borderRadius: 8,
         marginRight: 12,
+        alignSelf: 'center'
     },
     thumbnailPlaceholder: {
         width: 100,
-        height: 100, // Fixed height for placeholder
+        height: 100,
         borderRadius: 8,
         backgroundColor: '#f0f0f0',
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
+        alignSelf: 'center'
     },
     detailsContainer: { flex: 1, justifyContent: 'space-between' },
-    orderItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 },
-    clientName: { fontSize: 18, color: '#333', fontWeight: 'bold', flexShrink: 1, marginRight: 8 },
-    orderId: { fontSize: 12, color: '#666', paddingTop: 4 },
+    orderItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    orderId: { fontSize: 12, color: '#666', fontWeight: 'normal' },
+    clientName: { fontSize: 18, color: '#000', fontWeight: '500', marginBottom: 8 },
+    statusPill: {
+        backgroundColor: '#007bff',
+        borderRadius: 10,
+        paddingVertical: 3,
+        paddingHorizontal: 8,
+    },
+    statusPillText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    detailSection: {
+        marginVertical: 4,
+    },
     detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
     detailIcon: { marginRight: 8 },
     detailText: { fontSize: 14, color: '#444' },
