@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "./components/AuthContext";
 import ClientSelectorScreen from "./screens/ClientSelectorScreen";
 import OrderSuccessScreen from "./screens/OrderSuccessScreen";
 import ListOrdersScreen from "./screens/ListOrdersScreen";
+import OrderDetailsScreen from "./screens/OrderDetailsScreen";
 
 const Stack = createStackNavigator();
 
@@ -83,6 +84,17 @@ const AppNavigator = () => {
                     options={{
                         headerShown: true,
                         headerTitle: 'Orders',
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    }}
+                />
+                <Stack.Screen
+                    name="OrderDetails"
+                    component={OrderDetailsScreen}
+                    options={{
+                        headerShown: true,
+                        headerTitle: 'Order Details',
                         headerStyle: { backgroundColor: '#075E54' },
                         headerTintColor: '#fff',
                         headerTitleStyle: { fontWeight: 'bold' },

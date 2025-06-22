@@ -33,66 +33,66 @@ const formatDueDate = (dueDateStr) => {
     }
 };
 
-// This component now reflects the detailed layout with all fields restored.
-const OrderItem = React.memo(({ item }) => {
+// Reverted to the previous, more compact layout with all fields restored
+const OrderItem = React.memo(({ item, navigation }) => {
     const dueDateInfo = formatDueDate(item.deliveryDueDate);
 
     return (
-        <View style={styles.orderItem}>
-            {/* Image Container on the left */}
-            {item.thumbnailUrl ? (
-                <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
-            ) : (
-                <View style={styles.thumbnailPlaceholder}>
-                    <MaterialCommunityIcons name="image-outline" size={40} color="#ccc" />
-                </View>
-            )}
-            {/* Details Container on the right */}
-            <View style={styles.detailsContainer}>
-                {/* Top Row: Order ID and Status */}
-                <View style={styles.orderItemHeader}>
-                    <Text style={styles.orderId}>
-                        {`#${item.orderId ? item.orderId.substring(0, 8) : 'N/A'}...`}
-                    </Text>
-                    {item.statusName && (
-                        <View style={styles.statusPill}>
-                            <Text style={styles.statusPillText}>{item.statusName}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('OrderDetails', { orderId: item.orderId })}>
+            <View style={styles.orderItem}>
+                {/* Image Container on the left */}
+                {item.thumbnailUrl ? (
+                    <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
+                ) : (
+                    <View style={styles.thumbnailPlaceholder}>
+                        <MaterialCommunityIcons name="image-outline" size={40} color="#ccc" />
+                    </View>
+                )}
+                {/* Details Container on the right */}
+                <View style={styles.detailsContainer}>
+                    <View style={styles.orderItemHeader}>
+                        <Text style={styles.orderId}>
+                            {`#${item.orderId ? item.orderId.substring(0, 8) : 'N/A'}...`}
+                        </Text>
+                        {item.statusName && (
+                            <View style={styles.statusPill}>
+                                <Text style={styles.statusPillText}>{item.statusName}</Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <Text style={styles.clientName} numberOfLines={1}>{item.clientName}</Text>
+
+                    <View style={styles.detailSection}>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="tag-outline" size={16} color="#666" style={styles.detailIcon} />
+                            <Text style={styles.detailText}>{item.categoryName || 'N/A'}</Text>
                         </View>
-                    )}
-                </View>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="account-outline" size={16} color="#666" style={styles.detailIcon} />
+                            <Text style={styles.detailText}>By: {item.placedBy || 'N/A'}</Text>
+                        </View>
+                        {/* Restored Date Fields */}
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="calendar-import" size={16} color="#666" style={styles.detailIcon} />
+                            <Text style={styles.detailText}>Created: {item.orderDate || 'N/A'}</Text>
+                        </View>
+                        <View style={styles.detailRow}>
+                            <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#666" style={styles.detailIcon} />
+                            <Text style={styles.detailText}>Due: {item.deliveryDueDate || 'N/A'}</Text>
+                        </View>
+                    </View>
 
-                {/* Client Name */}
-                <Text style={styles.clientName} numberOfLines={1}>{item.clientName}</Text>
-
-                <View style={styles.detailSection}>
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="tag-outline" size={16} color="#666" style={styles.detailIcon} />
-                        <Text style={styles.detailText}>{item.categoryName || 'N/A'}</Text>
+                    <View style={styles.orderItemFooter}>
+                        <View style={[styles.dueDatePill, { backgroundColor: dueDateInfo.color }]}>
+                            <MaterialCommunityIcons name="clock-alert-outline" size={14} color="#fff" />
+                            <Text style={styles.dueDateText}>{dueDateInfo.text}</Text>
+                        </View>
+                        <Text style={styles.footerText}>Qty: {item.quantity}</Text>
                     </View>
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="account-outline" size={16} color="#666" style={styles.detailIcon} />
-                        <Text style={styles.detailText}>By: {item.placedBy || 'N/A'}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="calendar-import" size={16} color="#666" style={styles.detailIcon} />
-                        <Text style={styles.detailText}>Created: {item.orderDate || 'N/A'}</Text>
-                    </View>
-                    {/* Restored Due Date detail row */}
-                    <View style={styles.detailRow}>
-                        <MaterialCommunityIcons name="calendar-check-outline" size={16} color="#666" style={styles.detailIcon} />
-                        <Text style={styles.detailText}>Due: {item.deliveryDueDate || 'N/A'}</Text>
-                    </View>
-                </View>
-
-                <View style={styles.orderItemFooter}>
-                    <View style={[styles.dueDatePill, { backgroundColor: dueDateInfo.color }]}>
-                        <MaterialCommunityIcons name="clock-alert-outline" size={14} color="#fff" />
-                        <Text style={styles.dueDateText}>{dueDateInfo.text}</Text>
-                    </View>
-                    <Text style={styles.footerText}>Qty: {item.quantity}</Text>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 });
 
@@ -176,7 +176,7 @@ const ListOrdersScreen = ({ route, navigation }) => {
             </View>
             <FlatList
                 data={orders}
-                renderItem={({ item }) => <OrderItem item={item} />}
+                renderItem={({ item }) => <OrderItem item={item} navigation={navigation} />}
                 keyExtractor={item => item.orderId}
                 contentContainerStyle={styles.listContent}
                 onEndReached={handleLoadMore}

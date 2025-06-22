@@ -9,6 +9,7 @@ import {
     Linking,
     Alert,
     Image,
+    Modal, // Import Modal for full-screen view
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
@@ -25,7 +26,7 @@ const DetailRow = ({ icon, label, value }) => (
 );
 
 // A new component to render the dynamic fields from the map
-const DynamicFieldsSection = ({ title, fields, fieldDetails }) => {
+const DynamicFieldsSection = ({ title, fields }) => {
     if (!fields || Object.keys(fields).length === 0) {
         return null;
     }
@@ -34,11 +35,8 @@ const DynamicFieldsSection = ({ title, fields, fieldDetails }) => {
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>{title}</Text>
             {Object.entries(fields).map(([fieldId, fieldValue]) => {
-                // Find the field's display name from the fieldDetails map if available
-                const fieldName = fieldDetails?.[fieldId]?.fieldName || fieldId;
-                // Join array values for display
                 const displayValue = fieldValue.values?.join(', ') || 'N/A';
-                return <DetailRow key={fieldId} icon="tune" label={fieldName} value={displayValue} />;
+                return <DetailRow key={fieldId} icon="tune" label={fieldId} value={displayValue} />;
             })}
         </View>
     );
@@ -48,8 +46,8 @@ const DynamicFieldsSection = ({ title, fields, fieldDetails }) => {
 const OrderDetailsScreen = ({ route, navigation }) => {
     const { orderId } = route.params;
     const { data, error, loading, fetchData } = useAuthenticatedFetch(navigation);
-    // You might need to fetch the field definitions to get friendly names
-    // For now, we will use the fieldId as the label.
+    const [selectedImage, setSelectedImage] = useState(null); // State for the selected image URI
+    const [isModalVisible, setIsModalVisible] = useState(false); // State for modal visibility
 
     useEffect(() => {
         fetchData({
@@ -67,6 +65,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         }
         const url = action === 'call' ? `tel:${contactNumber}` : `whatsapp://send?phone=${contactNumber}`;
         Linking.openURL(url).catch(() => Alert.alert("Error", "Could not perform this action."));
+    };
+
+    const openImageModal = (uri) => {
+        setSelectedImage(uri);
+        setIsModalVisible(true);
     };
 
     const renderStatusTracker = (history) => (
@@ -95,57 +98,78 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     const { clientDetails, orderInfo, statusHistory } = data.orderDetails;
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-            {/* Client Details Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Client Details</Text>
-                <View style={styles.clientCard}>
-                    <Text style={styles.clientName}>{clientDetails.name}</Text>
-                    <View style={styles.clientActions}>
-                        <TouchableOpacity onPress={() => handleAction('call', clientDetails.contactNumber)} style={styles.actionButton}>
-                            <MaterialCommunityIcons name="phone" size={24} color="#075E54" />
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleAction('whatsapp', clientDetails.contactNumber)} style={styles.actionButton}>
-                            <MaterialCommunityIcons name="whatsapp" size={24} color="#25D366" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </View>
-
-            {/* Order Photos Section */}
-            {orderInfo.imageUrls && orderInfo.imageUrls.length > 0 && (
+        <View style={{flex: 1}}>
+            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+                {/* Client Details Section */}
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Order Photos</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {orderInfo.imageUrls.map((url, index) => (
-                            <Image key={index} source={{ uri: url }} style={styles.photo} />
-                        ))}
-                    </ScrollView>
+                    <Text style={styles.sectionTitle}>Client Details</Text>
+                    <View style={styles.clientCard}>
+                        <Text style={styles.clientName}>{clientDetails.name}</Text>
+                        <View style={styles.clientActions}>
+                            <TouchableOpacity onPress={() => handleAction('call', clientDetails.contactNumber)} style={styles.actionButton}>
+                                <MaterialCommunityIcons name="phone" size={24} color="#075E54" />
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleAction('whatsapp', clientDetails.contactNumber)} style={styles.actionButton}>
+                                <MaterialCommunityIcons name="whatsapp" size={24} color="#25D366" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                    {/* Display the client's mobile number */}
+                    <View style={styles.divider} />
+                    <DetailRow icon="cellphone" label="Mobile" value={clientDetails.contactNumber} />
                 </View>
-            )}
 
-            {/* Order Information Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Order Information</Text>
-                <DetailRow icon="calendar" label="Order Date" value={orderInfo.orderDate} />
-                <DetailRow icon="calendar-check" label="Due Date" value={orderInfo.deliveryDueDate} />
-                <DetailRow icon="tag" label="Category" value={orderInfo.categoryName} />
-                <DetailRow icon="format-list-numbered" label="Quantity" value={String(orderInfo.quantity)} />
-                <DetailRow icon="weight" label="Weight" value={orderInfo.weight} />
-                <DetailRow icon="priority-high" label="Priority" value={orderInfo.priority} />
-                <DetailRow icon="text" label="Narration" value={orderInfo.narration} />
-            </View>
+                {/* Order Photos Section */}
+                {orderInfo.imageUrls && orderInfo.imageUrls.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Order Photos</Text>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            {orderInfo.imageUrls.map((url, index) => (
+                                <TouchableOpacity key={index} onPress={() => openImageModal(url)}>
+                                    <Image source={{ uri: url }} style={styles.photo} />
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
-            {/* --- NEW: Display dynamic fields --- */}
-            <DynamicFieldsSection title="General Details" fields={orderInfo.generalFields} />
-            <DynamicFieldsSection title="Category Specific Details" fields={orderInfo.categorySpecificFields} />
+                {/* Order Information Section */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Order Information</Text>
+                    <DetailRow icon="calendar" label="Order Date" value={orderInfo.orderDate} />
+                    <DetailRow icon="calendar-check" label="Due Date" value={orderInfo.deliveryDueDate} />
+                    <DetailRow icon="tag" label="Category" value={orderInfo.categoryName} />
+                    <DetailRow icon="format-list-numbered" label="Quantity" value={String(orderInfo.quantity)} />
+                    <DetailRow icon="weight" label="Weight" value={orderInfo.weight} />
+                    <DetailRow icon="priority-high" label="Priority" value={orderInfo.priority} />
+                    <DetailRow icon="text" label="Narration" value={orderInfo.narration} />
+                </View>
 
-            {/* Status Tracker Section */}
-            <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Status Tracker</Text>
-                {renderStatusTracker(statusHistory)}
-            </View>
-        </ScrollView>
+                <DynamicFieldsSection title="General Details" fields={orderInfo.generalFields} />
+                <DynamicFieldsSection title="Category Specific Details" fields={orderInfo.categorySpecificFields} />
+
+                {/* Status Tracker Section */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Status Tracker</Text>
+                    {renderStatusTracker(statusHistory)}
+                </View>
+            </ScrollView>
+
+            {/* Modal for Full-Screen Image */}
+            <Modal
+                visible={isModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsModalVisible(false)}
+            >
+                <View style={styles.modalContainer}>
+                    <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
+                    <TouchableOpacity style={styles.closeButton} onPress={() => setIsModalVisible(false)}>
+                        <MaterialCommunityIcons name="close" size={30} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            </Modal>
+        </View>
     );
 };
 
@@ -157,12 +181,17 @@ const styles = StyleSheet.create({
     section: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#333' },
     clientCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    clientName: { fontSize: 20, fontWeight: '500' },
+    clientName: { fontSize: 20, fontWeight: '500', flexShrink: 1 },
     clientActions: { flexDirection: 'row' },
     actionButton: { marginLeft: 15, padding: 8 },
+    divider: {
+        height: 1,
+        backgroundColor: '#eee',
+        marginVertical: 12,
+    },
     photo: {
-        width: 100,
-        height: 100,
+        width: 120, // Increased size
+        height: 120, // Increased size
         borderRadius: 8,
         marginRight: 10,
     },
@@ -179,6 +208,22 @@ const styles = StyleSheet.create({
     statusName: { fontSize: 16, fontWeight: 'bold', color: '#666' },
     currentStatusName: { color: '#075E54' },
     statusMeta: { fontSize: 12, color: 'gray' },
+    modalContainer: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalImage: {
+        width: '95%',
+        height: '80%',
+    },
+    closeButton: {
+        position: 'absolute',
+        top: 40,
+        right: 20,
+        padding: 10,
+    },
 });
 
 export default OrderDetailsScreen;
