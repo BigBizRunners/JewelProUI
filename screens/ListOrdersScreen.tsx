@@ -33,7 +33,7 @@ const formatDueDate = (dueDateStr) => {
     }
 };
 
-// Reverted to the previous, more compact layout with all fields restored
+// OrderItem component for rendering individual orders
 const OrderItem = React.memo(({ item, navigation }) => {
     const dueDateInfo = formatDueDate(item.deliveryDueDate);
 
@@ -72,7 +72,6 @@ const OrderItem = React.memo(({ item, navigation }) => {
                             <MaterialCommunityIcons name="account-outline" size={16} color="#666" style={styles.detailIcon} />
                             <Text style={styles.detailText}>By: {item.placedBy || 'N/A'}</Text>
                         </View>
-                        {/* Restored Date Fields */}
                         <View style={styles.detailRow}>
                             <MaterialCommunityIcons name="calendar-import" size={16} color="#666" style={styles.detailIcon} />
                             <Text style={styles.detailText}>Created: {item.orderDate || 'N/A'}</Text>
@@ -96,20 +95,21 @@ const OrderItem = React.memo(({ item, navigation }) => {
     );
 });
 
-
 const ListOrdersScreen = ({ route, navigation }) => {
     const { selectedStateId: initialStateId, allStates: initialStates } = route.params;
     const [orders, setOrders] = useState([]);
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [lastEvaluatedKey, setLastEvaluatedKey] = useState(null);
+    const [hasNextPage, setHasNextPage] = useState(true);
     const [selectedStateId, setSelectedStateId] = useState(initialStateId);
     const [allStates, setAllStates] = useState(initialStates || []);
     const [filters, setFilters] = useState({});
-    const { data, error, loading, fetchData } = useAuthenticatedFetch(navigation);
+    const [error, setError] = useState(null);
+    const { data, error: fetchError, loading, fetchData } = useAuthenticatedFetch(navigation);
 
     const openFilterModal = () => console.log('Filter button pressed.');
     const openCreateOrder = () => navigation.navigate('SelectCategory');
 
+    // Set navigation header options
     useEffect(() => {
         navigation.setOptions({
             headerTitle: 'Orders',
@@ -121,32 +121,50 @@ const ListOrdersScreen = ({ route, navigation }) => {
         });
     }, [navigation]);
 
+    // Fetch orders when stateId or filters change
     useEffect(() => {
         fetchOrders();
-    }, [selectedStateId, page, filters]);
+    }, [selectedStateId, filters]);
 
     const fetchOrders = async () => {
-        const payload = { stateId: selectedStateId, page, limit: 15, ...filters };
+        setError(null);
+        const payload = {
+            stateId: selectedStateId,
+            limit: 15,
+            lastEvaluatedKey,
+            ...filters,
+        };
         const response = await fetchData({ url: GET_ORDERS_API_URL, method: 'POST', data: payload });
         if (response?.status === 'success' && response.orders) {
-            setOrders(prev => (page === 1 ? response.orders : [...prev, ...response.orders]));
-            if (response.pagination) setTotalPages(response.pagination.totalPages);
+            setOrders(prev => (lastEvaluatedKey ? [...prev, ...response.orders] : response.orders));
+            setLastEvaluatedKey(response.pagination?.lastEvaluatedKey || null);
+            setHasNextPage(response.pagination?.hasNextPage || false);
+        } else {
+            setError(response?.message || fetchError || 'Failed to fetch orders');
         }
     };
 
-    const handleLoadMore = () => {
-        if (!loading && page < totalPages) setPage(p => p + 1);
-    };
+    // Handle loading more orders when reaching the end of the list
+    const handleLoadMore = useCallback(() => {
+        if (!loading && hasNextPage) {
+            fetchOrders();
+        }
+    }, [loading, hasNextPage, selectedStateId, filters]);
 
+    // Handle pull-to-refresh
     const handleRefresh = useCallback(() => {
-        if (page !== 1) setPage(1);
-        else fetchOrders();
-    }, [page]);
+        setOrders([]);
+        setLastEvaluatedKey(null);
+        setHasNextPage(true);
+        fetchOrders();
+    }, [selectedStateId, filters]);
 
+    // Handle state tab selection
     const handleStateSelect = (stateId) => {
         if (stateId !== selectedStateId) {
             setOrders([]);
-            setPage(1);
+            setLastEvaluatedKey(null);
+            setHasNextPage(true);
             setSelectedStateId(stateId);
         }
     };
@@ -164,6 +182,14 @@ const ListOrdersScreen = ({ route, navigation }) => {
 
     return (
         <View style={styles.container}>
+            {error && (
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <TouchableOpacity onPress={handleRefresh} style={styles.retryButton}>
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
             <View style={styles.stateSelectorContainer}>
                 <FlatList
                     data={allStates}
@@ -182,9 +208,17 @@ const ListOrdersScreen = ({ route, navigation }) => {
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
                 onRefresh={handleRefresh}
-                refreshing={loading && page === 1}
-                ListFooterComponent={() => loading && page > 1 ? <ActivityIndicator size="large" color="#075E54" style={{ marginVertical: 20 }} /> : null}
-                ListEmptyComponent={() => !loading && <Text style={styles.emptyText}>No orders found.</Text>}
+                refreshing={loading && !lastEvaluatedKey} // Only show refresh indicator on initial load
+                ListFooterComponent={() =>
+                    loading && lastEvaluatedKey ? (
+                        <ActivityIndicator size="large" color="#075E54" style={{ marginVertical: 20 }} />
+                    ) : null
+                }
+                ListEmptyComponent={() =>
+                    !loading && !error ? (
+                        <Text style={styles.emptyText}>No orders found.</Text>
+                    ) : null
+                }
             />
             <TouchableOpacity style={styles.fab} onPress={openCreateOrder}>
                 <MaterialCommunityIcons name="plus" size={30} color="#fff" />
@@ -196,9 +230,20 @@ const ListOrdersScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f2f2f2' },
     headerButton: { marginRight: 15, padding: 5 },
-    stateSelectorContainer: { backgroundColor: '#fff', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
+    stateSelectorContainer: {
+        backgroundColor: '#fff',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e0e0e0',
+    },
     stateSelectorContent: { paddingHorizontal: 10 },
-    stateTab: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: '#e9ecef', marginHorizontal: 5 },
+    stateTab: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#e9ecef',
+        marginHorizontal: 5,
+    },
     stateTabSelected: { backgroundColor: '#075E54' },
     stateTabText: { color: '#495057', fontWeight: '600' },
     stateTabTextSelected: { color: '#fff' },
@@ -221,7 +266,7 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         borderRadius: 8,
         marginRight: 12,
-        alignSelf: 'center'
+        alignSelf: 'center',
     },
     thumbnailPlaceholder: {
         width: 100,
@@ -231,10 +276,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 12,
-        alignSelf: 'center'
+        alignSelf: 'center',
     },
     detailsContainer: { flex: 1, justifyContent: 'space-between' },
-    orderItemHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+    orderItemHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
     orderId: { fontSize: 12, color: '#666', fontWeight: 'normal' },
     clientName: { fontSize: 18, color: '#000', fontWeight: '500', marginBottom: 8 },
     statusPill: {
@@ -254,7 +304,15 @@ const styles = StyleSheet.create({
     detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 5 },
     detailIcon: { marginRight: 8 },
     detailText: { fontSize: 14, color: '#444' },
-    orderItemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 8 },
+    orderItemFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+        paddingTop: 8,
+    },
     dueDatePill: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -265,7 +323,41 @@ const styles = StyleSheet.create({
     dueDateText: { color: '#fff', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
     footerText: { fontSize: 14, color: '#555' },
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 16, color: '#888' },
-    fab: { position: 'absolute', width: 60, height: 60, alignItems: 'center', justifyContent: 'center', right: 20, bottom: 20, backgroundColor: '#075E54', borderRadius: 30, elevation: 8 },
+    fab: {
+        position: 'absolute',
+        width: 60,
+        height: 60,
+        alignItems: 'center',
+        justifyContent: 'center',
+        right: 20,
+        bottom: 20,
+        backgroundColor: '#075E54',
+        borderRadius: 30,
+        elevation: 8,
+    },
+    errorContainer: {
+        padding: 15,
+        backgroundColor: '#f8d7da',
+        borderRadius: 8,
+        margin: 15,
+        alignItems: 'center',
+    },
+    errorText: {
+        color: '#721c24',
+        fontSize: 16,
+        marginBottom: 10,
+    },
+    retryButton: {
+        backgroundColor: '#075E54',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+    },
+    retryButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
 });
 
 export default ListOrdersScreen;
