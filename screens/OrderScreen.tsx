@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, Text, FlatList, StyleSheet, Dimensions, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native'; // Import useFocusEffect
 import Header from '../components/Header';
 import Tile from '../components/Tile';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
@@ -7,37 +8,45 @@ import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 const API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/get-dashboardDetails";
 
 const OrderScreen = ({ navigation }: any) => {
-    const { data: ordersData, error, loading } = useAuthenticatedFetch(navigation, {
-        url: API_URL,
-        data: { "isOrderScreen": "true" },
-        autoFetch: true,
-    });
+    // FIX: Removed autoFetch: true to control fetching manually.
+    const { data: ordersData, error, loading, fetchData } = useAuthenticatedFetch(navigation);
+
+    // FIX: Use useFocusEffect to re-fetch data every time the screen comes into focus.
+    useFocusEffect(
+        useCallback(() => {
+            fetchData({
+                url: API_URL,
+                data: { "isOrderScreen": "true" },
+            });
+        }, []) // Empty dependency array means this effect runs on focus.
+    );
 
     const calculateTotals = (states: any[]) => {
         let allOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };
         let pendingOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };
 
-        states.forEach((state: any) => {
-            allOrders.noOfOrders += state.noOfOrders;
-            allOrders.totalQuantity += state.totalQuantity;
-            allOrders.weightFrom += state.weightFrom;
-            allOrders.weightTo += state.weightTo;
+        if (states) { // Guard against states being null or undefined
+            states.forEach((state: any) => {
+                allOrders.noOfOrders += state.noOfOrders;
+                allOrders.totalQuantity += state.totalQuantity;
+                allOrders.weightFrom += state.weightFrom;
+                allOrders.weightTo += state.weightTo;
 
-            if (state.pendingState) { // Corrected from isPendingState to match API response
-                pendingOrders.noOfOrders += state.noOfOrders;
-                pendingOrders.totalQuantity += state.totalQuantity;
-                pendingOrders.weightFrom += state.weightFrom;
-                pendingOrders.weightTo += state.weightTo;
-            }
-        });
+                if (state.pendingState) {
+                    pendingOrders.noOfOrders += state.noOfOrders;
+                    pendingOrders.totalQuantity += state.totalQuantity;
+                    pendingOrders.weightFrom += state.weightFrom;
+                    pendingOrders.weightTo += state.weightTo;
+                }
+            });
+        }
         return { allOrders, pendingOrders };
     };
 
-    // --- FIX: Map API response to a standardized format with an 'id' key ---
     const rawStates = ordersData?.ordersPerState?.ordersPerState || [];
     const orderStates = rawStates.map(state => ({
         ...state,
-        id: state.orderStateId, // Standardize 'orderStateId' to 'id'
+        id: state.orderStateId,
     }));
 
     const { allOrders, pendingOrders } = calculateTotals(orderStates);
@@ -89,7 +98,7 @@ const OrderScreen = ({ navigation }: any) => {
 
     return (
         <View style={styles.container}>
-            {loading ? (
+            {loading && !ordersData ? ( // Show loader only on initial load
                 <ActivityIndicator size="large" color="#0000ff" style={styles.loading} />
             ) : error ? (
                 <Text style={styles.errorText}>{error}</Text>
@@ -121,7 +130,7 @@ const styles = StyleSheet.create({
     list: { paddingBottom: 20, paddingTop: 10 },
     row: { justifyContent: 'space-between' },
     tile: { flex: 1, margin: 8, minHeight: Dimensions.get('window').height / 6.5 },
-    errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 10 },
+    errorText: { color: 'red', fontSize: 16, textAlign: 'center', margin: 20 },
     loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
