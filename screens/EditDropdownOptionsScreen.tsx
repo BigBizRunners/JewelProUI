@@ -9,6 +9,8 @@ import {
     Alert,
     ActivityIndicator,
     Modal,
+    KeyboardAvoidingView,
+    Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
@@ -53,7 +55,7 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
             Alert.alert('Error', 'Option cannot be empty');
             return;
         }
-        if (options.includes(newOption.trim())) {
+        if (options.map(opt => opt.toLowerCase()).includes(newOption.trim().toLowerCase())) {
             Alert.alert('Error', 'Option already exists');
             setNewOption('');
             return;
@@ -63,8 +65,22 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
         setNewOption('');
     };
 
-    const removeOption = (option) => {
-        setOptions(options.filter(opt => opt !== option));
+    const confirmRemoveOption = (optionToRemove) => {
+        Alert.alert(
+            'Delete Option',
+            `Are you sure you want to delete "${optionToRemove}"?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: () => {
+                        setOptions(options.filter(opt => opt !== optionToRemove));
+                    },
+                },
+            ],
+            { cancelable: false }
+        );
     };
 
     const saveOptions = async () => {
@@ -84,7 +100,6 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
         };
 
         try {
-            console.log('Sending payload:', JSON.stringify(updatedField, null, 2));
             const response = await fetchData({
                 url: MANAGE_FIELD_API_URL,
                 method: 'POST',
@@ -95,7 +110,7 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
                 Alert.alert('Success', 'Dropdown options updated successfully');
                 navigation.goBack({ updated: true });
             } else {
-                Alert.alert('Error', response?.errorMessage || 'Failed to update options');
+                Alert.alert('Error', response?.errorMessage || 'Failed to update options.');
             }
         } catch (error) {
             Alert.alert('Error', 'Failed to save options: ' + error.message);
@@ -105,8 +120,8 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
     const renderOptionItem = ({ item }) => (
         <View style={styles.optionItem}>
             <Text style={styles.optionText}>{item}</Text>
-            <TouchableOpacity onPress={() => removeOption(item)}>
-                <MaterialCommunityIcons name="delete" size={20} color="red" />
+            <TouchableOpacity onPress={() => confirmRemoveOption(item)}>
+                <MaterialCommunityIcons name="delete-outline" size={24} color="#E53935" />
             </TouchableOpacity>
         </View>
     );
@@ -114,8 +129,8 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
     return (
         <View style={styles.container}>
             {loading ? (
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#075E54" />
+                <View style={styles.overlay}>
+                    <ActivityIndicator size="large" color="#0000ff" />
                     <Text style={styles.loadingText}>Saving...</Text>
                 </View>
             ) : (
@@ -126,13 +141,19 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
                         renderItem={renderOptionItem}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
                         style={styles.optionsList}
+                        ListEmptyComponent={
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No options yet.</Text>
+                                <Text style={styles.emptySubText}>Tap the '+' button to get started.</Text>
+                            </View>
+                        }
                     />
                     <TouchableOpacity style={styles.fab} onPress={openAddModal}>
                         <MaterialCommunityIcons name="plus" size={24} color="#fff" />
                     </TouchableOpacity>
                     <View style={styles.buttonContainer}>
                         <TouchableOpacity style={styles.saveButton} onPress={saveOptions}>
-                            <Text style={styles.buttonText}>Save</Text>
+                            <Text style={styles.saveButtonText}>Save Changes</Text>
                         </TouchableOpacity>
                     </View>
                 </>
@@ -144,28 +165,36 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
                 animationType="slide"
                 onRequestClose={() => setAddModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === "ios" ? "padding" : "height"}
+                    style={styles.modalOverlay}
+                >
                     <View style={styles.modalContainer}>
                         <Text style={styles.modalTitle}>Add New Option</Text>
                         <TextInput
                             style={styles.optionInput}
-                            placeholder="Enter option"
+                            placeholder="Enter option name"
+                            placeholderTextColor="#999"
                             value={newOption}
                             onChangeText={setNewOption}
+                            autoFocus
                         />
                         <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={addOption}>
-                                <Text style={styles.buttonText}>Add</Text>
-                            </TouchableOpacity>
                             <TouchableOpacity
-                                style={styles.modalCancelButton}
+                                style={[styles.modalButton, styles.modalCancelButton]}
                                 onPress={() => setAddModalVisible(false)}
                             >
-                                <Text style={styles.buttonText}>Cancel</Text>
+                                <Text style={styles.modalButtonText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.modalSaveButton]}
+                                onPress={addOption}
+                            >
+                                <Text style={[styles.modalButtonText, { color: '#fff' }]}>Add</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );
@@ -175,11 +204,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#f9f9f9',
-        paddingHorizontal: 10,
-        paddingTop: 20,
     },
     optionsList: {
         flex: 1,
+        paddingHorizontal: 10,
+        paddingTop: 10,
     },
     optionItem: {
         flexDirection: 'row',
@@ -188,19 +217,22 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         padding: 12,
         borderRadius: 8,
+        elevation: 2,
+        marginVertical: 4,
     },
     optionText: {
         fontSize: 16,
         color: '#333',
+        flex: 1,
     },
     separator: {
         height: 1,
-        backgroundColor: '#e0e0e0',
-        marginVertical: 8,
+        backgroundColor: '#f0f0f0',
+        marginVertical: 2,
     },
     fab: {
         position: 'absolute',
-        bottom: 80,
+        bottom: 80, // Position above the save button
         right: 20,
         backgroundColor: '#075E54',
         width: 56,
@@ -209,82 +241,104 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+        zIndex: 1,
     },
     buttonContainer: {
-        paddingBottom: 20,
+        paddingHorizontal: 10,
+        paddingTop: 10,
+        paddingBottom: 20, // Matches ViewFieldsScreen for safe area
+        backgroundColor: '#f9f9f9', // Match container background
     },
     saveButton: {
         backgroundColor: '#075E54',
         padding: 12,
-        borderRadius: 4,
+        borderRadius: 8, // Consistent corner radius
         alignItems: 'center',
     },
-    buttonText: {
+    saveButtonText: {
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
     },
-    loadingContainer: {
-        flex: 1,
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
         justifyContent: 'center',
         alignItems: 'center',
+        zIndex: 10,
     },
     loadingText: {
         marginTop: 10,
         fontSize: 16,
         color: '#333',
     },
+    emptyContainer: {
+        flex: 1,
+        paddingTop: 80,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#555'
+    },
+    emptySubText: {
+        fontSize: 14,
+        color: '#777',
+        marginTop: 5
+    },
     modalOverlay: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
+        justifyContent: 'flex-end',
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     modalContainer: {
-        width: '80%',
+        width: '100%',
         backgroundColor: '#fff',
-        borderRadius: 8,
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
         padding: 20,
+        paddingBottom: 30,
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        marginBottom: 15,
+        marginBottom: 20,
         color: '#333',
+        textAlign: 'center',
     },
     optionInput: {
         borderWidth: 1,
         borderColor: '#ccc',
-        borderRadius: 4,
-        padding: 10,
+        borderRadius: 8,
+        padding: 12,
         fontSize: 16,
-        backgroundColor: '#fff',
-        marginBottom: 15,
+        backgroundColor: '#f5f5f5',
+        marginBottom: 20,
     },
     modalButtons: {
         flexDirection: 'row',
         justifyContent: 'space-between',
     },
+    modalButton: {
+        paddingVertical: 12,
+        borderRadius: 8,
+        flex: 1,
+        alignItems: 'center',
+    },
     modalSaveButton: {
         backgroundColor: '#075E54',
-        padding: 10,
-        borderRadius: 4,
-        flex: 1,
-        marginRight: 5,
-        alignItems: 'center',
+        marginLeft: 5,
     },
     modalCancelButton: {
-        backgroundColor: '#ccc',
-        padding: 10,
-        borderRadius: 4,
-        flex: 1,
-        marginLeft: 5,
-        alignItems: 'center',
+        backgroundColor: '#E0E0E0',
+        marginRight: 5,
     },
+    modalButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+    }
 });
 
 export default EditDropdownOptionsScreen;

@@ -16,10 +16,10 @@ const GET_CATEGORIES_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazon
 const MODIFY_CATEGORY_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/modifyCategoryByUser";
 
 const CategoriesScreen = ({ navigation }: any) => {
-    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation); // Removed autoFetch: true
+    const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation);
 
     const [categories, setCategories] = useState([]);
-    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [selectedCategory, setSelectedCategory] = useState<any>(null);
     const [isModalVisible, setModalVisible] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -54,9 +54,16 @@ const CategoriesScreen = ({ navigation }: any) => {
         }
     };
 
+    const closeModal = () => {
+        if (!isDeleting) {
+            setModalVisible(false);
+            setSelectedCategory(null);
+        }
+    }
+
     const handleEdit = () => {
         setModalVisible(false);
-        navigation.navigate('ManageCategory', { category: selectedCategory }); // Pass category data
+        navigation.navigate('ManageCategory', { category: selectedCategory });
     };
 
     const handleViewOrderFields = () => {
@@ -82,9 +89,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                     text: 'Delete',
                     style: 'destructive',
                     onPress: async () => {
-                        console.log("Starting delete, isDeleting:", isDeleting);
                         setIsDeleting(true);
-                        console.log("Set isDeleting to true");
                         try {
                             const deleteResponse = await fetchData({
                                 url: MODIFY_CATEGORY_API_URL,
@@ -106,7 +111,6 @@ const CategoriesScreen = ({ navigation }: any) => {
                             Alert.alert("Error", "An error occurred while deleting the category");
                         } finally {
                             setIsDeleting(false);
-                            console.log("Delete finished, isDeleting:", isDeleting);
                         }
                     },
                 },
@@ -142,10 +146,11 @@ const CategoriesScreen = ({ navigation }: any) => {
                         keyExtractor={(item) => item.categoryId}
                         renderItem={renderCategoryItem}
                         ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        contentContainerStyle={styles.listContent}
                     />
                     <TouchableOpacity
                         style={styles.addButton}
-                        onPress={() => navigation.navigate('ManageCategory')} // No category for add
+                        onPress={() => navigation.navigate('ManageCategory')}
                         disabled={isDeleting}
                     >
                         <Text style={styles.addButtonText}>Add Category</Text>
@@ -156,7 +161,7 @@ const CategoriesScreen = ({ navigation }: any) => {
             {isDeleting && (
                 <View style={styles.fullScreenLoader}>
                     <ActivityIndicator size="large" color="#0000ff" />
-                    <Text style={styles.loadingText}>Deleting category...</Text>
+                    <Text style={styles.deletingText}>Deleting category...</Text>
                 </View>
             )}
 
@@ -164,7 +169,7 @@ const CategoriesScreen = ({ navigation }: any) => {
                 visible={isModalVisible}
                 transparent
                 animationType="slide"
-                onRequestClose={() => !isDeleting && setModalVisible(false)}
+                onRequestClose={closeModal}
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
@@ -182,11 +187,11 @@ const CategoriesScreen = ({ navigation }: any) => {
                             <Text style={[styles.modalOptionText, { color: 'red' }]}>Delete Category</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.modalOption, { marginTop: 10 }]}
-                            onPress={() => !isDeleting && setModalVisible(false)}
+                            style={[styles.modalOption, { marginTop: 10, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 12 }]}
+                            onPress={closeModal}
                             disabled={isDeleting}
                         >
-                            <Text style={[styles.modalOptionText, { color: '#333' }]}>Cancel</Text>
+                            <Text style={[styles.modalOptionText, { color: '#333', textAlign: 'center' }]}>Cancel</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -202,12 +207,19 @@ const styles = StyleSheet.create({
         paddingHorizontal: 5,
         paddingTop: 20,
     },
+    listContent: {
+        paddingBottom: 60
+    },
     categoryItem: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
         backgroundColor: '#fff',
         padding: 12,
         borderRadius: 8,
+        elevation: 2,
+        marginVertical: 4,
+        marginHorizontal: 10,
     },
     categoryText: {
         flex: 1,
@@ -217,36 +229,35 @@ const styles = StyleSheet.create({
     },
     separator: {
         height: 1,
-        backgroundColor: '#e0e0e0',
-        marginVertical: 8,
+        backgroundColor: '#f0f0f0',
+        marginVertical: 2,
     },
     addButton: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#075E54',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        padding: 12,
         borderRadius: 8,
-        marginTop: 20,
-        marginBottom: 20,
         justifyContent: 'center',
+        margin: 10,
+        marginBottom: 20,
     },
     addButtonText: {
         fontSize: 16,
         fontWeight: '600',
         color: '#fff',
-        marginLeft: 8,
     },
     modalOverlay: {
         flex: 1,
-        justifyContent: 'center',
+        justifyContent: 'flex-end',
         alignItems: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
     },
     modalContainer: {
-        width: '80%',
+        width: '100%',
         backgroundColor: '#fff',
-        borderRadius: 8,
+        borderTopLeftRadius: 15,
+        borderTopRightRadius: 15,
         padding: 20,
     },
     modalTitle: {
@@ -254,36 +265,44 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 20,
         color: '#333',
+        textAlign: 'center',
     },
     modalOption: {
-        paddingVertical: 12,
+        paddingVertical: 14,
     },
     modalOptionText: {
         fontSize: 16,
         color: '#075E54',
+        textAlign: 'center',
     },
     errorText: {
         color: 'red',
         fontSize: 16,
         textAlign: 'center',
-        marginBottom: 10,
+        marginTop: 20,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-    },
-    fullScreenLoader: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
+        backgroundColor: '#f9f9f9',
     },
     loadingText: {
         marginTop: 10,
         fontSize: 16,
-        color: '#fff',
+        color: '#333',
+    },
+    fullScreenLoader: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    deletingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#333',
     },
 });
 
