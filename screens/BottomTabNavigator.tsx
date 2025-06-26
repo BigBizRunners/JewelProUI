@@ -19,7 +19,7 @@ const BottomTabNavigator = () => {
             }}
         >
             <Tab.Screen name="Orders" component={OrdersScreen} options={{ headerTitle: 'JewelPro' }} />
-            <Tab.Screen name="Repair" component={RepairScreen} options={{ headerTitle: 'JewelPro' }} />
+            {/*<Tab.Screen name="Repair" component={RepairScreen} options={{ headerTitle: 'JewelPro' }} />*/}
             <Tab.Screen name="Settings" component={SettingsStackNavigator} options={{ headerTitle: 'JewelPro' }} />
         </Tab.Navigator>
     );

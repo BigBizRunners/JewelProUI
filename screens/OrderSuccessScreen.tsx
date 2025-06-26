@@ -35,7 +35,7 @@ const OrderSuccessScreen = () => {
                 index: 1,
                 routes: [
                     { name: 'Home', state: { routes: [{ name: 'Orders' }] } },
-                    { name: 'OrderDetail', params: { orderId } }
+                    { name: 'OrderDetails', params: { orderId } }
                 ],
             })
         );
