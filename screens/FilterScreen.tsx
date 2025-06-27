@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,16 +7,34 @@ const FilterScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
 
-    // Safely get the onApply callback and current filters from the route params
     const { currentFilters = {}, onApply } = route.params || {};
+
+    // Store the initial filters to compare against for changes
+    const initialFiltersRef = useRef(currentFilters);
 
     const [selectedClientIds, setSelectedClientIds] = useState(currentFilters.clientIds || []);
     const [selectedCategoryIds, setSelectedCategoryIds] = useState(currentFilters.categoryIds || []);
+    const [isDirty, setIsDirty] = useState(false);
+
+    // Check if filters have changed from their initial state
+    useEffect(() => {
+        const initialClients = JSON.stringify(initialFiltersRef.current.clientIds?.sort() || []);
+        const currentClients = JSON.stringify([...selectedClientIds].sort());
+
+        const initialCategories = JSON.stringify(initialFiltersRef.current.categoryIds?.sort() || []);
+        const currentCategories = JSON.stringify([...selectedCategoryIds].sort());
+
+        if (initialClients !== currentClients || initialCategories !== currentCategories) {
+            setIsDirty(true);
+        } else {
+            setIsDirty(false);
+        }
+    }, [selectedClientIds, selectedCategoryIds]);
+
 
     const navigateToMultiSelect = (type, selectedIds) => {
         const title = type === 'clients' ? 'Select Clients' : 'Select Categories';
 
-        // This onSave callback will be called from the MultiSelectListScreen
         const onSave = (newSelectedIds) => {
             if (type === 'clients') {
                 setSelectedClientIds(newSelectedIds);
@@ -29,33 +47,23 @@ const FilterScreen = () => {
             title,
             selectedIds,
             selectionType: type,
-            onSave: onSave, // Pass the callback here
+            onSave: onSave,
         });
     };
 
     const handleApplyFilters = () => {
-        const newFilters = {};
-        if (selectedClientIds.length > 0) newFilters.clientIds = selectedClientIds;
-        if (selectedCategoryIds.length > 0) newFilters.categoryIds = selectedCategoryIds;
-
-        // FIX: Call the onApply callback passed from ListOrdersScreen...
         if (onApply) {
+            const newFilters = {};
+            if (selectedClientIds.length > 0) newFilters.clientIds = selectedClientIds;
+            if (selectedCategoryIds.length > 0) newFilters.categoryIds = selectedCategoryIds;
             onApply(newFilters);
         }
-        // ...and then go back to the previous screen. This fixes the issue.
         navigation.goBack();
     };
 
     const handleClearFilters = () => {
         setSelectedClientIds([]);
         setSelectedCategoryIds([]);
-
-        // FIX: Call onApply with empty filters...
-        if (onApply) {
-            onApply({});
-        }
-        // ...and then go back.
-        navigation.goBack();
     };
 
     const getSelectionText = (count, singular, plural) => {
@@ -64,37 +72,51 @@ const FilterScreen = () => {
         return `${count} ${plural} selected`;
     };
 
+    const hasActiveSelections = selectedClientIds.length > 0 || selectedCategoryIds.length > 0;
+
     return (
         <View style={styles.container}>
-            <ScrollView>
+            <ScrollView contentContainerStyle={styles.scrollView}>
+                <Text style={styles.label}>Clients</Text>
                 <TouchableOpacity
-                    style={styles.filterRow}
+                    style={styles.input}
                     onPress={() => navigateToMultiSelect('clients', selectedClientIds)}
                 >
-                    <View>
-                        <Text style={styles.filterLabel}>Clients</Text>
-                        <Text style={styles.filterValue}>{getSelectionText(selectedClientIds.length, 'Client', 'Clients')}</Text>
+                    <View style={styles.dropdownContainer}>
+                        <Text style={styles.dropdownText}>
+                            {getSelectionText(selectedClientIds.length, 'Client', 'Clients')}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-down" size={20} color="#888" />
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
                 </TouchableOpacity>
 
+                <Text style={styles.label}>Categories</Text>
                 <TouchableOpacity
-                    style={styles.filterRow}
+                    style={styles.input}
                     onPress={() => navigateToMultiSelect('categories', selectedCategoryIds)}
                 >
-                    <View>
-                        <Text style={styles.filterLabel}>Categories</Text>
-                        <Text style={styles.filterValue}>{getSelectionText(selectedCategoryIds.length, 'Category', 'Categories')}</Text>
+                    <View style={styles.dropdownContainer}>
+                        <Text style={styles.dropdownText}>
+                            {getSelectionText(selectedCategoryIds.length, 'Category', 'Categories')}
+                        </Text>
+                        <MaterialCommunityIcons name="chevron-down" size={20} color="#888" />
                     </View>
-                    <MaterialCommunityIcons name="chevron-right" size={24} color="#666" />
                 </TouchableOpacity>
             </ScrollView>
 
             <View style={styles.footer}>
-                <TouchableOpacity style={styles.clearButton} onPress={handleClearFilters}>
-                    <Text style={styles.clearButtonText}>Clear</Text>
+                <TouchableOpacity
+                    style={[styles.button, styles.clearButton, !hasActiveSelections && styles.disabledButton]}
+                    onPress={handleClearFilters}
+                    disabled={!hasActiveSelections}
+                >
+                    <Text style={styles.clearButtonText}>Clear All</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.applyButton} onPress={handleApplyFilters}>
+                <TouchableOpacity
+                    style={[styles.button, styles.applyButton, !isDirty && styles.disabledButton]}
+                    onPress={handleApplyFilters}
+                    disabled={!isDirty}
+                >
                     <Text style={styles.applyButtonText}>Apply Filters</Text>
                 </TouchableOpacity>
             </View>
@@ -105,26 +127,32 @@ const FilterScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f2f2f2',
+        backgroundColor: '#f9f9f9',
     },
-    filterRow: {
+    scrollView: {
+        padding: 20,
+    },
+    label: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        color: '#000',
+    },
+    input: {
+        borderBottomWidth: 1,
+        borderColor: '#ccc',
+        padding: 10,
+        marginBottom: 20,
+        backgroundColor: 'transparent', // Ensure no background color
+    },
+    dropdownContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        paddingVertical: 15,
-        paddingHorizontal: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#e0e0e0',
     },
-    filterLabel: {
+    dropdownText: {
         fontSize: 16,
         color: '#333',
-    },
-    filterValue: {
-        fontSize: 14,
-        color: '#666',
-        marginTop: 4,
     },
     footer: {
         flexDirection: 'row',
@@ -133,13 +161,15 @@ const styles = StyleSheet.create({
         borderTopColor: '#e0e0e0',
         backgroundColor: '#fff',
     },
-    applyButton: {
-        backgroundColor: '#075E54',
+    button: {
         paddingVertical: 14,
         borderRadius: 8,
         flex: 1,
-        marginLeft: 10,
         alignItems: 'center',
+    },
+    applyButton: {
+        backgroundColor: '#075E54',
+        marginLeft: 10,
     },
     applyButtonText: {
         color: '#fff',
@@ -148,15 +178,14 @@ const styles = StyleSheet.create({
     },
     clearButton: {
         backgroundColor: '#f0f0f0',
-        paddingVertical: 14,
-        borderRadius: 8,
-        flex: 1,
-        alignItems: 'center',
     },
     clearButtonText: {
         color: '#333',
         fontSize: 16,
         fontWeight: '600',
+    },
+    disabledButton: {
+        opacity: 0.5,
     },
 });
 
