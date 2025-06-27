@@ -40,7 +40,6 @@ const OrderItem = React.memo(({ item, navigation }) => {
     return (
         <TouchableOpacity onPress={() => navigation.navigate('OrderDetails', { orderId: item.orderId })}>
             <View style={styles.orderItem}>
-                {/* Image Container on the left */}
                 {item.thumbnailUrl ? (
                     <Image source={{ uri: item.thumbnailUrl }} style={styles.thumbnail} />
                 ) : (
@@ -48,7 +47,6 @@ const OrderItem = React.memo(({ item, navigation }) => {
                         <MaterialCommunityIcons name="image-outline" size={40} color="#ccc" />
                     </View>
                 )}
-                {/* Details Container on the right */}
                 <View style={styles.detailsContainer}>
                     <View style={styles.orderItemHeader}>
                         <Text style={styles.orderId}>
@@ -60,9 +58,7 @@ const OrderItem = React.memo(({ item, navigation }) => {
                             </View>
                         )}
                     </View>
-
                     <Text style={styles.clientName} numberOfLines={1}>{item.clientName}</Text>
-
                     <View style={styles.detailSection}>
                         <View style={styles.detailRow}>
                             <MaterialCommunityIcons name="tag-outline" size={16} color="#666" style={styles.detailIcon} />
@@ -81,7 +77,6 @@ const OrderItem = React.memo(({ item, navigation }) => {
                             <Text style={styles.detailText}>Due: {item.deliveryDueDate || 'N/A'}</Text>
                         </View>
                     </View>
-
                     <View style={styles.orderItemFooter}>
                         <View style={[styles.dueDatePill, { backgroundColor: dueDateInfo.color }]}>
                             <MaterialCommunityIcons name="clock-alert-outline" size={14} color="#fff" />
@@ -106,70 +101,89 @@ const ListOrdersScreen = ({ route, navigation }) => {
     const [error, setError] = useState(null);
     const { data, error: fetchError, loading, fetchData } = useAuthenticatedFetch(navigation);
 
-    const openFilterModal = () => console.log('Filter button pressed.');
+    // FIX: Pass a callback to the filter screen to receive updated filters
+    const openFilterScreen = () => {
+        navigation.navigate('FilterScreen', {
+            currentFilters: filters,
+            onApply: (newFilters) => {
+                setFilters(newFilters);
+            },
+        });
+    };
+
     const openCreateOrder = () => navigation.navigate('SelectCategory');
 
-    // Set navigation header options
     useEffect(() => {
         navigation.setOptions({
             headerTitle: 'Orders',
             headerRight: () => (
-                <TouchableOpacity onPress={openFilterModal} style={styles.headerButton}>
+                <TouchableOpacity onPress={openFilterScreen} style={styles.headerButton}>
                     <MaterialCommunityIcons name="filter-variant" size={24} color="#fff" />
                 </TouchableOpacity>
             ),
         });
-    }, [navigation]);
+    }, [navigation, filters]);
 
-    // Fetch orders when stateId or filters change
-    useEffect(() => {
-        fetchOrders();
-    }, [selectedStateId, filters]);
+    // This useEffect is no longer needed because we use the onApply callback
+    // useEffect(() => {
+    //     if (route.params?.newFilters) {
+    //         setFilters(route.params.newFilters);
+    //         navigation.setParams({ newFilters: null }); // Clear params
+    //     }
+    // }, [route.params?.newFilters]);
 
-    const fetchOrders = async () => {
+    const fetchOrdersAPI = useCallback(async (isInitialFetch = true) => {
         setError(null);
+        let keyToUse = isInitialFetch ? null : lastEvaluatedKey;
+
         const payload = {
             stateId: selectedStateId,
             limit: 15,
-            lastEvaluatedKey,
-            ...filters,
+            lastEvaluatedKey: keyToUse,
+            filters: {
+                ...filters,
+            },
         };
+
         const response = await fetchData({ url: GET_ORDERS_API_URL, method: 'POST', data: payload });
+
         if (response?.status === 'success' && response.orders) {
-            setOrders(prev => (lastEvaluatedKey ? [...prev, ...response.orders] : response.orders));
+            setOrders(prev => (isInitialFetch ? response.orders : [...prev, ...response.orders]));
             setLastEvaluatedKey(response.pagination?.lastEvaluatedKey || null);
-            setHasNextPage(response.pagination?.hasNextPage || false);
+            setHasNextPage(!!response.pagination?.lastEvaluatedKey);
         } else {
             setError(response?.message || fetchError || 'Failed to fetch orders');
         }
-    };
+    }, [selectedStateId, filters, lastEvaluatedKey, hasNextPage, loading]);
 
-    // Handle loading more orders when reaching the end of the list
+    // Fetch orders when stateId or filters change
+    useEffect(() => {
+        setOrders([]);
+        setLastEvaluatedKey(null);
+        setHasNextPage(true);
+        fetchOrdersAPI(true);
+    }, [selectedStateId, filters]);
+
     const handleLoadMore = useCallback(() => {
         if (!loading && hasNextPage) {
-            fetchOrders();
+            fetchOrdersAPI(false);
         }
-    }, [loading, hasNextPage, selectedStateId, filters]);
+    }, [loading, hasNextPage]);
 
-    // Handle pull-to-refresh
     const handleRefresh = useCallback(() => {
         setOrders([]);
         setLastEvaluatedKey(null);
         setHasNextPage(true);
-        fetchOrders();
+        fetchOrdersAPI(true);
     }, [selectedStateId, filters]);
 
-    // Handle state tab selection
     const handleStateSelect = (stateId) => {
         if (stateId !== selectedStateId) {
-            setOrders([]);
-            setLastEvaluatedKey(null);
-            setHasNextPage(true);
             setSelectedStateId(stateId);
         }
     };
 
-    const renderStateTab = ({ item }) => (
+    const renderStateTab = ({item}) => (
         <TouchableOpacity
             style={[styles.stateTab, item.id === selectedStateId && styles.stateTabSelected]}
             onPress={() => handleStateSelect(item.id)}
@@ -203,20 +217,22 @@ const ListOrdersScreen = ({ route, navigation }) => {
             <FlatList
                 data={orders}
                 renderItem={({ item }) => <OrderItem item={item} navigation={navigation} />}
-                keyExtractor={item => item.orderId}
+                keyExtractor={(item, index) => `${item.orderId}-${index}`}
                 contentContainerStyle={styles.listContent}
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
                 onRefresh={handleRefresh}
-                refreshing={loading && !lastEvaluatedKey} // Only show refresh indicator on initial load
+                refreshing={loading && orders.length === 0}
                 ListFooterComponent={() =>
-                    loading && lastEvaluatedKey ? (
+                    loading && orders.length > 0 ? (
                         <ActivityIndicator size="large" color="#075E54" style={{ marginVertical: 20 }} />
                     ) : null
                 }
                 ListEmptyComponent={() =>
                     !loading && !error ? (
-                        <Text style={styles.emptyText}>No orders found.</Text>
+                        <View style={styles.centered}>
+                            <Text style={styles.emptyText}>No orders found.</Text>
+                        </View>
                     ) : null
                 }
             />
@@ -229,6 +245,7 @@ const ListOrdersScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f2f2f2' },
+    centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
     headerButton: { marginRight: 15, padding: 5 },
     stateSelectorContainer: {
         backgroundColor: '#fff',
@@ -262,8 +279,7 @@ const styles = StyleSheet.create({
     },
     thumbnail: {
         width: 100,
-        height: 'auto',
-        aspectRatio: 1,
+        height: 100,
         borderRadius: 8,
         marginRight: 12,
         alignSelf: 'center',

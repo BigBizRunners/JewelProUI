@@ -11,6 +11,8 @@ import ClientSelectorScreen from "./screens/ClientSelectorScreen";
 import OrderSuccessScreen from "./screens/OrderSuccessScreen";
 import ListOrdersScreen from "./screens/ListOrdersScreen";
 import OrderDetailsScreen from "./screens/OrderDetailsScreen";
+import FilterScreen from "./screens/FilterScreen";
+import MultiSelectListScreen from "./screens/MultiSelectListScreen";
 
 const Stack = createStackNavigator();
 
@@ -99,6 +101,28 @@ const AppNavigator = () => {
                         headerTintColor: '#fff',
                         headerTitleStyle: { fontWeight: 'bold' },
                     }}
+                />
+                <Stack.Screen
+                    name="FilterScreen"
+                    component={FilterScreen}
+                    options={{
+                        headerShown: true,
+                        headerTitle: 'Filter Orders',
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    }}
+                />
+                <Stack.Screen
+                    name="MultiSelectList"
+                    component={MultiSelectListScreen}
+                    options={({ route }) => ({
+                        title: route.params.title,
+                        headerShown: true,
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    })}
                 />
             </Stack.Navigator>
         </NavigationContainer>
