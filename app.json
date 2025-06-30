@@ -18,8 +18,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/JewelProIcon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icon_foreground.png",
+        "backgroundImage": "./assets/icon_background.png"
       },
       "package": "com.anonymous.JewelryAppTest"
     },
