@@ -35,8 +35,10 @@ const Tile = ({ title, orders, quantity, weight, color, onPress }: TileProps) =>
 
 const styles = StyleSheet.create({
     tile: {
-        flex: 1,
-        margin: 5,
+        // flex: 1, // FIX: Remove flex: 1
+        width: '48%', // FIX: Set a specific width less than 50% to allow for space between items
+        marginHorizontal: '1%', // FIX: Use percentage margin to center the grid
+        marginVertical: 5, // FIX: Add vertical margin
         padding: 15,
         borderRadius: 10,
         shadowColor: '#000',
@@ -49,9 +51,9 @@ const styles = StyleSheet.create({
     tileTitle: {
         fontSize: 18,
         fontWeight: 'bold',
-        lineHeight: 22,  // Maintain proper spacing
-        minHeight: 48,   // Ensure space for two lines
-        flexWrap: 'wrap', // Allow text to wrap instead of truncating
+        lineHeight: 22,
+        minHeight: 48,
+        flexWrap: 'wrap',
         textAlignVertical: 'center',
         marginBottom: 5,
     },

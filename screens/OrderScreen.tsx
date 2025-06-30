@@ -11,9 +11,6 @@ const OrderScreen = ({ navigation }: any) => {
     const { data: ordersData, error, loading, fetchData } = useAuthenticatedFetch(navigation);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // FIX: Using useCallback with an empty dependency array to ensure the function
-    // passed to useFocusEffect is stable, preventing an infinite loop.
-    // This assumes `fetchData` itself is stable or that omitting it is the intended pattern for this hook.
     useFocusEffect(
         useCallback(() => {
             fetchData({
@@ -30,7 +27,7 @@ const OrderScreen = ({ navigation }: any) => {
             data: { "isOrderScreen": "true" },
         });
         setIsRefreshing(false);
-    }, []); // Similar to above, omitting fetchData to prevent potential loops.
+    }, []);
 
     const calculateTotals = (states: any[]) => {
         let allOrders = { noOfOrders: 0, totalQuantity: 0, weightFrom: 0, weightTo: 0 };
@@ -68,11 +65,15 @@ const OrderScreen = ({ navigation }: any) => {
             { id: 'pendingOrders', orderStateName: 'Pending Orders', ...pendingOrders, color: 'rgb(244,68,102)' },
         ];
 
-        const adjustedStates = orderStates.length % 2 !== 0
-            ? [...orderStates, { id: 'placeholder', orderStateName: '' }]
-            : orderStates;
+        const combinedStates = [...defaultTiles, ...orderStates];
 
-        return [...defaultTiles, ...adjustedStates];
+        // FIX: The placeholder logic now works correctly with fixed-width tiles.
+        // We check the combined list length.
+        if (combinedStates.length % 2 !== 0) {
+            combinedStates.push({ id: 'placeholder', orderStateName: '' });
+        }
+
+        return combinedStates;
 
     }, [ordersData]);
 
@@ -106,7 +107,8 @@ const OrderScreen = ({ navigation }: any) => {
 
     const renderTile = useCallback(({ item }: any) => {
         if (item.id === 'placeholder') {
-            return <View style={[styles.tile, { backgroundColor: 'transparent', elevation: 0 }]} />;
+            // FIX: The placeholder is now a simple View with the same dimensions as a tile.
+            return <View style={{ width: '48%', marginHorizontal: '1%' }} />;
         }
 
         const weightRange = `${item.weightFrom?.toFixed(2) || '0.00'} - ${item.weightTo?.toFixed(2) || '0.00'} gms`;
@@ -181,12 +183,12 @@ const OrderScreen = ({ navigation }: any) => {
 };
 
 const styles = StyleSheet.create({
-    // FIX: Restored padding to the main container to fix the header layout.
     container: { flex: 1, backgroundColor: '#f7f7f7', paddingHorizontal: 10, paddingTop: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
     list: { paddingBottom: 20, paddingTop: 10 },
-    row: { justifyContent: 'space-between' },
-    tile: { flex: 1, margin: 8, minHeight: Dimensions.get('window').height / 6.5, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1}, shadowOpacity: 0.2, shadowRadius: 2, backgroundColor: '#fff' },
+    // FIX: Let the row justify normally. The percentage widths on the tiles handle the spacing.
+    row: {},
+    // FIX: The component-specific `tile` style is no longer needed here.
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 10 },
     retryButton: {
         backgroundColor: '#075E54',
