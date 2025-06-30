@@ -19,7 +19,6 @@ import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 const GET_ORDER_DETAILS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getOrderDetails';
 const CHANGE_ORDER_STATUS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/changeOrderStatus';
 
-
 // --- Reusable Components ---
 
 const DetailRow = ({ icon, label, value }) => (
@@ -46,7 +45,6 @@ const DynamicFieldsSection = ({ title, fields }) => {
     );
 };
 
-
 // --- Main Screen Component ---
 
 const OrderDetailsScreen = ({ route, navigation }) => {
@@ -69,6 +67,14 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     // State for status change modal
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
 
+    // Set navigation options and disable gestures during status update
+    useEffect(() => {
+        navigation.setOptions({
+            title: `Order #${orderId.substring(0, 8)}...`,
+            gestureEnabled: !isUpdatingStatus, // Disable gestures during status update
+        });
+    }, [navigation, orderId, isUpdatingStatus]);
+
     // Initial fetch of order details when the component mounts or orderId changes
     useEffect(() => {
         if (orderId) {
@@ -77,11 +83,10 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 method: 'POST',
                 data: { orderId },
             });
-            navigation.setOptions({ title: `Order #${orderId.substring(0, 8)}...` });
         }
     }, [orderId]);
 
-    // useEffect to handle the result of the status update operation
+    // Handle the result of the status update operation
     useEffect(() => {
         if (!isUpdatingStatus) {
             if (updateError) {
@@ -96,7 +101,6 @@ const OrderDetailsScreen = ({ route, navigation }) => {
             }
         }
     }, [isUpdatingStatus, updateResponse, updateError]);
-
 
     // --- Action Handlers ---
 
@@ -126,22 +130,16 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         });
     };
 
-
     // --- Render Functions ---
 
-    // --- MODIFIED: This function now sorts by latest first and uses `item.current` for highlighting ---
     const renderStatusTracker = (history) => (
-        // Create a reversed copy of the history array to show the latest status first.
         [...history].reverse().map((item, index, arr) => (
             <View key={index} style={styles.statusItem}>
                 <View style={styles.statusDotContainer}>
-                    {/* Use `item.current` to apply the highlight style, matching the API response */}
                     <View style={[styles.statusDot, item.current && styles.currentStatusDot]} />
-                    {/* The connecting line is not drawn for the last item in the list (the oldest) */}
                     {index < arr.length - 1 && <View style={styles.statusLine} />}
                 </View>
                 <View style={styles.statusDetails}>
-                    {/* Use `item.current` to apply the highlight style for the text */}
                     <Text style={[styles.statusName, item.current && styles.currentStatusName]}>{item.statusName}</Text>
                     <Text style={styles.statusMeta}>by {item.user} on {item.date}</Text>
                 </View>
@@ -150,8 +148,13 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     );
 
     // --- Loading and Error States ---
-    if (loading || isUpdatingStatus) {
-        return <ActivityIndicator size="large" style={styles.centered} />;
+    if (loading) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0000ff" />
+                <Text style={styles.loadingText}>Loading order details...</Text>
+            </View>
+        );
     }
 
     if (error || !data?.orderDetails) {
@@ -162,9 +165,8 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     const { clientDetails, orderInfo, statusHistory, allowedNextStatus } = data.orderDetails;
     const canChangeStatus = allowedNextStatus && allowedNextStatus.length > 0;
 
-
     return (
-        <View style={{flex: 1}}>
+        <View style={{ flex: 1 }}>
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* Client Details Section */}
                 <View style={styles.section}>
@@ -172,10 +174,18 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                     <View style={styles.clientCard}>
                         <Text style={styles.clientName}>{clientDetails.name}</Text>
                         <View style={styles.clientActions}>
-                            <TouchableOpacity onPress={() => handleContactAction('call', clientDetails.contactNumber)} style={styles.actionButton}>
+                            <TouchableOpacity
+                                onPress={() => handleContactAction('call', clientDetails.contactNumber)}
+                                style={styles.actionButton}
+                                disabled={isUpdatingStatus}
+                            >
                                 <MaterialCommunityIcons name="phone" size={24} color="#075E54" />
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleContactAction('whatsapp', clientDetails.contactNumber)} style={styles.actionButton}>
+                            <TouchableOpacity
+                                onPress={() => handleContactAction('whatsapp', clientDetails.contactNumber)}
+                                style={styles.actionButton}
+                                disabled={isUpdatingStatus}
+                            >
                                 <MaterialCommunityIcons name="whatsapp" size={24} color="#25D366" />
                             </TouchableOpacity>
                         </View>
@@ -190,7 +200,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                         <Text style={styles.sectionTitle}>Order Photos</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {orderInfo.imageUrls.map((url, index) => (
-                                <TouchableOpacity key={index} onPress={() => openImageModal(url)}>
+                                <TouchableOpacity key={index} onPress={() => openImageModal(url)} disabled={isUpdatingStatus}>
                                     <Image source={{ uri: url }} style={styles.photo} />
                                 </TouchableOpacity>
                             ))}
@@ -223,7 +233,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
 
             {/* --- Floating "Change Status" Button --- */}
             {canChangeStatus && (
-                <TouchableOpacity style={styles.changeStatusButton} onPress={() => setIsStatusModalVisible(true)}>
+                <TouchableOpacity
+                    style={[styles.changeStatusButton, isUpdatingStatus ? styles.disabledButton : null]}
+                    onPress={() => setIsStatusModalVisible(true)}
+                    disabled={isUpdatingStatus}
+                >
                     <MaterialCommunityIcons name="sync" size={22} color="#fff" />
                     <Text style={styles.changeStatusButtonText}>Change Status</Text>
                 </TouchableOpacity>
@@ -234,11 +248,15 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 visible={isImageModalVisible}
                 transparent={true}
                 animationType="fade"
-                onRequestClose={() => setIsImageModalVisible(false)}
+                onRequestClose={() => !isUpdatingStatus && setIsImageModalVisible(false)}
             >
                 <View style={styles.modalContainer}>
                     <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
-                    <TouchableOpacity style={styles.closeButton} onPress={() => setIsImageModalVisible(false)}>
+                    <TouchableOpacity
+                        style={styles.closeButton}
+                        onPress={() => setIsImageModalVisible(false)}
+                        disabled={isUpdatingStatus}
+                    >
                         <MaterialCommunityIcons name="close" size={30} color="#fff" />
                     </TouchableOpacity>
                 </View>
@@ -250,9 +268,12 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                     visible={isStatusModalVisible}
                     transparent={true}
                     animationType="slide"
-                    onRequestClose={() => setIsStatusModalVisible(false)}
+                    onRequestClose={() => !isUpdatingStatus && setIsStatusModalVisible(false)}
                 >
-                    <Pressable style={styles.statusModalBackdrop} onPress={() => !isUpdatingStatus && setIsStatusModalVisible(false)}>
+                    <Pressable
+                        style={styles.statusModalBackdrop}
+                        onPress={() => !isUpdatingStatus && setIsStatusModalVisible(false)}
+                    >
                         <View style={styles.statusModalContent}>
                             <View style={styles.handleBar} />
                             <Text style={styles.statusModalTitle}>Select Next Status</Text>
@@ -266,12 +287,24 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                                     <Text style={styles.statusOptionText}>{status.name}</Text>
                                 </TouchableOpacity>
                             ))}
-                            <TouchableOpacity style={styles.cancelButton} onPress={() => setIsStatusModalVisible(false)} disabled={isUpdatingStatus}>
+                            <TouchableOpacity
+                                style={styles.cancelButton}
+                                onPress={() => setIsStatusModalVisible(false)}
+                                disabled={isUpdatingStatus}
+                            >
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
                         </View>
                     </Pressable>
                 </Modal>
+            )}
+
+            {/* --- Full-Screen Loader for Status Update --- */}
+            {isUpdatingStatus && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Updating status...</Text>
+                </View>
             )}
         </View>
     );
@@ -281,7 +314,18 @@ const OrderDetailsScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f2f2f2' },
     contentContainer: { padding: 15, paddingBottom: 100 },
-    centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    loadingContainer: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#333',
+    },
     errorText: { textAlign: 'center', marginTop: 30, color: 'red' },
     section: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 12, color: '#333' },
@@ -298,7 +342,7 @@ const styles = StyleSheet.create({
     statusItem: { flexDirection: 'row' },
     statusDotContainer: { alignItems: 'center', marginRight: 15 },
     statusDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#ccc' },
-    currentStatusDot: { backgroundColor: '#075E54', borderWidth: 2, borderColor: '#fff', elevation: 2, shadowColor: '#000' }, // Added subtle elevation
+    currentStatusDot: { backgroundColor: '#075E54', borderWidth: 2, borderColor: '#fff', elevation: 2, shadowColor: '#000' },
     statusLine: { flex: 1, width: 2, backgroundColor: '#ccc' },
     statusDetails: { flex: 1, paddingBottom: 20 },
     statusName: { fontSize: 16, fontWeight: 'bold', color: '#666' },
@@ -324,6 +368,10 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
     },
+    disabledButton: {
+        backgroundColor: '#A9A9A9',
+        opacity: 0.6,
+    },
     changeStatusButtonText: {
         color: '#fff',
         fontSize: 16,
@@ -345,7 +393,7 @@ const styles = StyleSheet.create({
         shadowColor: "#000",
         shadowOffset: {
             width: 0,
-            height: -2
+            height: -2,
         },
         shadowOpacity: 0.1,
         shadowRadius: 4,

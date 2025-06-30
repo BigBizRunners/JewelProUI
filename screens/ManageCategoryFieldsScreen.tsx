@@ -10,6 +10,7 @@ import {
     Platform,
     Alert,
     Switch,
+    ActivityIndicator,
 } from 'react-native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
@@ -32,7 +33,6 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
         }
     };
 
-
     // Convert string to boolean
     const toBoolean = (value: any) => {
         if (typeof value === 'string') {
@@ -41,7 +41,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
         return !!value; // Convert to boolean if not string
     };
 
-    // Initialize state with field data if available, with debugging
+    // Initialize state with field data if available
     useEffect(() => {
         console.log('Received field data:', JSON.stringify(field, null, 2));
         setFieldData({
@@ -49,9 +49,9 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
             fieldName: field?.fieldName || '',
             fieldType: field ? normalizeFieldTypeForDisplay(field.fieldType) : 'Text',
             position: field?.position?.toString() || '0',
-            isVisibleInClientOrderForm: field ? toBoolean(field.visibleInClientOrderForm) : false, // Map from incoming data
-            isVisibleInKarigarJobCard: field ? toBoolean(field.visibleInKarigarJobCard) : false, // Map from incoming data
-            isRequired: field ? toBoolean(field.required) : false, // Map from incoming data
+            isVisibleInClientOrderForm: field ? toBoolean(field.visibleInClientOrderForm) : false,
+            isVisibleInKarigarJobCard: field ? toBoolean(field.visibleInKarigarJobCard) : false,
+            isRequired: field ? toBoolean(field.required) : false,
             isOrderField: isOrderFields,
             isRepairField: !isOrderFields,
         });
@@ -69,13 +69,15 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
         isRepairField: !isOrderFields,
     });
     const [apiError, setApiError] = useState('');
+    const [saveLoading, setSaveLoading] = useState(false); // New state for save operation loading
 
     // Update navigation title based on whether we're adding or modifying
     useEffect(() => {
         navigation.setOptions({
             title: field ? 'Modify Category Field' : 'Add Category Field',
+            gestureEnabled: !saveLoading, // Disable gestures during loading
         });
-    }, [navigation, field]);
+    }, [navigation, field, saveLoading]);
 
     const handleSaveField = async () => {
         if (!fieldData.fieldName.trim()) {
@@ -89,34 +91,42 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
 
         const payload = {
             categoryId,
-            fieldId: fieldData.fieldId || '', // Include fieldId for update
+            fieldId: fieldData.fieldId || '',
             fieldName: fieldData.fieldName,
             fieldType: fieldData.fieldType,
             position: parseInt(fieldData.position, 10),
-            isVisibleInClientOrderForm: fieldData.isVisibleInClientOrderForm, // Use expected API key
-            isVisibleInKarigarJobCard: fieldData.isVisibleInKarigarJobCard, // Use expected API key
-            isRequired: fieldData.isRequired, // Use expected API key
-            isOrderField: fieldData.isOrderField, // Use expected API key
-            isRepairField: fieldData.isRepairField, // Use expected API key
-            operation: field ? 'update' : 'add', // Add operation field
+            isVisibleInClientOrderForm: fieldData.isVisibleInClientOrderForm,
+            isVisibleInKarigarJobCard: fieldData.isVisibleInKarigarJobCard,
+            isRequired: fieldData.isRequired,
+            isOrderField: fieldData.isOrderField,
+            isRepairField: fieldData.isRepairField,
+            operation: field ? 'update' : 'add',
         };
 
         console.log("Saving field with payload:", JSON.stringify(payload));
 
         setApiError('');
-        const response = await fetchData({
-            url: MANAGE_FIELD_API_URL,
-            method: 'POST',
-            data: payload,
-        });
+        setSaveLoading(true); // Show loader
 
-        if (response && response.status === "success") {
-            console.log("Field saved, response:", JSON.stringify(response));
-            await onFieldAdded();
-            navigation.goBack();
-            Alert.alert("Success", field ? "Field updated successfully" : "Field added successfully");
-        } else {
-            setApiError(response?.errorMessage || (field ? "Failed to update field" : "Failed to add field"));
+        try {
+            const response = await fetchData({
+                url: MANAGE_FIELD_API_URL,
+                method: 'POST',
+                data: payload,
+            });
+
+            if (response && response.status === "success") {
+                console.log("Field saved, response:", JSON.stringify(response));
+                Alert.alert("Success", field ? "Field updated successfully" : "Field added successfully");
+                navigation.goBack(); // Go back to the previous screen
+            } else {
+                setApiError(response?.errorMessage || (field ? "Failed to update field" : "Failed to add field"));
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setApiError("An unexpected error occurred while saving the field");
+        } finally {
+            setSaveLoading(false); // Hide loader
         }
     };
 
@@ -143,7 +153,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                     placeholder="Enter field name"
                     value={fieldData.fieldName}
                     onChangeText={(text) => setFieldData({ ...fieldData, fieldName: text })}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
 
                 <Text style={styles.label}>
@@ -158,7 +168,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                                 fieldData.fieldType === option.value && styles.optionButtonSelected,
                             ]}
                             onPress={() => setFieldData({ ...fieldData, fieldType: option.value })}
-                            disabled={loading}
+                            disabled={loading || saveLoading} // Disable during loading
                         >
                             <Text
                                 style={[
@@ -183,7 +193,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={fieldData.position}
                     onChangeText={(text) => setFieldData({ ...fieldData, position: text })}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
 
                 <View style={styles.switchContainer}>
@@ -193,7 +203,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                     <Switch
                         value={fieldData.isVisibleInClientOrderForm}
                         onValueChange={(value) => setFieldData({ ...fieldData, isVisibleInClientOrderForm: value })}
-                        disabled={loading}
+                        disabled={loading || saveLoading} // Disable during loading
                         trackColor={{ false: "#767577", true: "#075E54" }}
                         thumbColor={fieldData.isVisibleInClientOrderForm ? "#f4f3f4" : "#f4f3f4"}
                     />
@@ -206,7 +216,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                     <Switch
                         value={fieldData.isVisibleInKarigarJobCard}
                         onValueChange={(value) => setFieldData({ ...fieldData, isVisibleInKarigarJobCard: value })}
-                        disabled={loading}
+                        disabled={loading || saveLoading} // Disable during loading
                         trackColor={{ false: "#767577", true: "#075E54" }}
                         thumbColor={fieldData.isVisibleInKarigarJobCard ? "#f4f3f4" : "#f4f3f4"}
                     />
@@ -219,7 +229,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
                     <Switch
                         value={fieldData.isRequired}
                         onValueChange={(value) => setFieldData({ ...fieldData, isRequired: value })}
-                        disabled={loading}
+                        disabled={loading || saveLoading} // Disable during loading
                         trackColor={{ false: "#767577", true: "#075E54" }}
                         thumbColor={fieldData.isRequired ? "#f4f3f4" : "#f4f3f4"}
                     />
@@ -230,14 +240,21 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
             </ScrollView>
 
             <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.addButton, (loading || saveLoading) ? styles.disabledButton : null]}
                 onPress={handleSaveField}
-                disabled={loading}
+                disabled={loading || saveLoading} // Disable button during loading
             >
                 <Text style={styles.addButtonText}>
-                    {loading ? (field ? 'Updating...' : 'Adding...') : (field ? 'Update Field' : 'Add Field')}
+                    {(loading || saveLoading) ? (field ? 'Updating...' : 'Adding...') : (field ? 'Update Field' : 'Add Field')}
                 </Text>
             </TouchableOpacity>
+
+            {saveLoading && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Saving...</Text>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 };
@@ -318,6 +335,10 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
         justifyContent: 'center',
     },
+    disabledButton: {
+        backgroundColor: '#A9A9A9',
+        opacity: 0.6,
+    },
     addButtonText: {
         fontSize: 16,
         fontWeight: '600',
@@ -328,6 +349,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         marginBottom: 10,
+    },
+    loadingContainer: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#333',
     },
 });
 

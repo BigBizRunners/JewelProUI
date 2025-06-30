@@ -7,7 +7,9 @@ import {
     StyleSheet,
     KeyboardAvoidingView,
     ScrollView,
-    Platform
+    Platform,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
@@ -24,12 +26,14 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
     const [quantityUnit, setQuantityUnit] = useState(existingCategory.quantityUnit?.[0] || '');
     const [apiError, setApiError] = useState('');
     const { fetchData, error: fetchError, loading } = useAuthenticatedFetch(navigation);
+    const [saveLoading, setSaveLoading] = useState(false); // New state for save operation loading
 
     useEffect(() => {
         navigation.setOptions({
             title: isEditing ? 'Edit Category' : 'Add Category',
+            gestureEnabled: !saveLoading, // Disable gestures during loading
         });
-    }, [navigation, isEditing]);
+    }, [navigation, isEditing, saveLoading]);
 
     const handleSubmit = async () => {
         if (!categoryName.trim() || !minDays.trim() || !bufferDays.trim() || !quantityUnit.trim()) {
@@ -46,19 +50,33 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
         };
 
         setApiError('');
-        const url = isEditing ? MODIFY_CATEGORY_API_URL : ADD_CATEGORY_API_URL;
-        const responseData = await fetchData({
-            url,
-            method: 'POST',
-            data: categoryData,
-        });
+        setSaveLoading(true); // Show loader
 
-        console.log("Response is ==> " + JSON.stringify(responseData));
+        try {
+            const url = isEditing ? MODIFY_CATEGORY_API_URL : ADD_CATEGORY_API_URL;
+            const responseData = await fetchData({
+                url,
+                method: 'POST',
+                data: categoryData,
+            });
 
-        if (responseData && responseData.status === "success") {
-            navigation.goBack();
-        } else if (responseData && responseData.status === "failure") {
-            setApiError(responseData.responseMessage || `Failed to ${isEditing ? 'update' : 'add'} category`);
+            console.log("Response is ==> " + JSON.stringify(responseData));
+
+            if (responseData && responseData.status === "success") {
+                Alert.alert("Success", "Category Submitted Successfully", [
+                    {
+                        text: "OK",
+                        onPress: () => navigation.goBack(),
+                    },
+                ]);
+            } else if (responseData && responseData.status === "failure") {
+                setApiError(responseData.responseMessage || `Failed to ${isEditing ? 'update' : 'add'} category`);
+            }
+        } catch (error) {
+            console.error("Save error:", error);
+            setApiError("An unexpected error occurred while saving the category");
+        } finally {
+            setSaveLoading(false); // Hide loader
         }
     };
 
@@ -71,7 +89,7 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
                     placeholder="Enter category name"
                     value={categoryName}
                     onChangeText={setCategoryName}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
                 <Text style={styles.label}>Minimum Days For Due Date <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -80,7 +98,7 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={minDays}
                     onChangeText={setMinDays}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
                 <Text style={styles.label}>Buffer Days For Due Date <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -89,7 +107,7 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
                     keyboardType="numeric"
                     value={bufferDays}
                     onChangeText={setBufferDays}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
                 <Text style={styles.label}>Quantity Unit (Eg. pcs) <Text style={styles.required}>*</Text></Text>
                 <TextInput
@@ -97,20 +115,26 @@ const ManageCategoryScreen = ({ navigation, route }: any) => {
                     placeholder="Enter quantity unit"
                     value={quantityUnit}
                     onChangeText={setQuantityUnit}
-                    editable={!loading}
+                    editable={!loading && !saveLoading} // Disable during loading
                 />
                 {apiError && <Text style={styles.errorText}>{apiError}</Text>}
                 {fetchError && !apiError && <Text style={styles.errorText}>{fetchError}</Text>}
             </ScrollView>
             <TouchableOpacity
-                style={styles.addButton}
+                style={[styles.addButton, (loading || saveLoading) ? styles.disabledButton : null]}
                 onPress={handleSubmit}
-                disabled={loading}
+                disabled={loading || saveLoading} // Disable button during loading
             >
                 <Text style={styles.addButtonText}>
-                    {loading ? (isEditing ? 'Updating...' : 'Adding...') : (isEditing ? 'Update Category' : 'Add Category')}
+                    {(loading || saveLoading) ? (isEditing ? 'Updating...' : 'Adding...') : (isEditing ? 'Update Category' : 'Add Category')}
                 </Text>
             </TouchableOpacity>
+            {saveLoading && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0000ff" />
+                    <Text style={styles.loadingText}>Saving...</Text>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 };
@@ -154,6 +178,10 @@ const styles = StyleSheet.create({
         marginHorizontal: 20, // Match CategoriesScreen horizontal spacing
         justifyContent: 'center',
     },
+    disabledButton: {
+        backgroundColor: '#A9A9A9',
+        opacity: 0.6,
+    },
     addButtonText: {
         fontSize: 16,
         fontWeight: '600',
@@ -165,6 +193,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         marginBottom: 10,
+    },
+    loadingContainer: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10,
+    },
+    loadingText: {
+        marginTop: 10,
+        fontSize: 16,
+        color: '#333',
     },
 });
 

@@ -40,6 +40,7 @@ const ManageStatusScreen = ({ navigation, route }: any) => {
     useEffect(() => {
         navigation.setOptions({
             title: status ? 'Edit Status' : 'Add Status',
+            gestureEnabled: !loading, // Disable gestures during loading
             headerLeft: () => (
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
