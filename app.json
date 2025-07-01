@@ -4,11 +4,11 @@
     "slug": "JewelryAppTest",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/JewelProIcon.png",
+    "icon": "./assets/JewelProNewLogo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/JewelProIcon.png",
+      "image": "./assets/JewelProNewLogo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -18,13 +18,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon_foreground.png",
-        "backgroundImage": "./assets/icon_background.png"
+        "foregroundImage": "./assets/JewelProNewLogoForeGround.png",
+        "backgroundColor": "#ffffff"
       },
       "package": "com.anonymous.JewelryAppTest"
     },
     "web": {
-      "favicon": "./assets/JewelProIcon.png"
+      "favicon": "./assets/JewelProNewLogo.png"
     },
     "extra": {
       "eas": {
