@@ -89,18 +89,7 @@ const SettingsStackNavigator = () => {
                     ),
                 })}
             />
-            <Stack.Screen
-                name="ManageClient"
-                component={ManageClientScreen}
-                options={({ navigation, route }) => ({
-                    title: route.params?.client ? 'Update Client' : 'Add Client',
-                    headerLeft: () => (
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginLeft: 15 }}>
-                            <MaterialCommunityIcons name="arrow-left" size={24} color="#333" />
-                        </TouchableOpacity>
-                    ),
-                })}
-            />
+            
             <Stack.Screen
                 name="OrderStatus"
                 component={OrderStatusScreen}

@@ -8,18 +8,21 @@ import {
     ActivityIndicator,
     Alert,
     Linking,
+    TextInput,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const HANDLE_CLIENT_OPERATION_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/handleClientOperation";
-const GET_CLIENTS_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getClients";
+const HANDLE_CLIENT_OPERATION_API_URL = process.env.EXPO_PUBLIC_API_URL_HANDLE_CLIENT_OPERATION;
+const GET_CLIENTS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_CLIENTS;
 
 const ClientsScreen = () => {
     const navigation = useNavigation();
     const { data: responseData, error, loading, fetchData } = useAuthenticatedFetch(navigation);
     const [clients, setClients] = useState([]);
+    const [filteredClients, setFilteredClients] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
     const [deleteLoading, setDeleteLoading] = useState(false); // Add deleteLoading state
 
     const fetchDataRef = useRef(fetchData);
@@ -33,8 +36,11 @@ const ClientsScreen = () => {
             const response = await fetchDataRef.current({ url: GET_CLIENTS_API_URL, method: 'POST' });
             if (response?.clients) {
                 setClients(response.clients);
+                setFilteredClients(response.clients);
             } else {
                 console.log("No clients data:", response);
+                setClients([]);
+                setFilteredClients([]);
             }
         } catch (err) {
             console.error("Error fetching clients:", err);
@@ -46,6 +52,19 @@ const ClientsScreen = () => {
             fetchClients();
         }, [fetchClients])
     );
+
+    useEffect(() => {
+        if (searchQuery.trim() === '') {
+            setFilteredClients(clients);
+        } else {
+            const lowercasedQuery = searchQuery.toLowerCase();
+            const filtered = clients.filter(client =>
+                client.name.toLowerCase().includes(lowercasedQuery) ||
+                (client.clientContactNumber && client.clientContactNumber.toLowerCase().includes(lowercasedQuery))
+            );
+            setFilteredClients(filtered);
+        }
+    }, [searchQuery, clients]);
 
     const handleDelete = async (clientId: string) => {
         Alert.alert(
@@ -170,11 +189,26 @@ const ClientsScreen = () => {
                 </View>
             )}
             <View style={styles.contentContainer}>
+                <View style={styles.searchContainer}>
+                    <MaterialCommunityIcons name="magnify" size={20} color="#888" style={styles.searchIcon} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search clients..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#888"
+                    />
+                </View>
                 <FlatList
-                    data={clients}
+                    data={filteredClients}
                     keyExtractor={(item) => item.clientId}
                     renderItem={renderClientItem}
                     ItemSeparatorComponent={() => <View style={styles.separator} />}
+                    ListEmptyComponent={() => (
+                        <Text style={styles.emptyText}>
+                            {searchQuery ? 'No clients match your search.' : 'No clients available.'}
+                        </Text>
+                    )}
                 />
             </View>
             <TouchableOpacity style={styles.addFieldButton} onPress={() => navigation.navigate('ManageClient')}>
@@ -193,7 +227,30 @@ const styles = StyleSheet.create({
     },
     contentContainer: {
         flex: 1,
-        justifyContent: 'space-between',
+        // Removed justifyContent: 'space-between' to allow search bar to be at the top
+    },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        marginHorizontal: 15,
+        marginBottom: 10,
+        paddingHorizontal: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 3,
+        elevation: 2,
+    },
+    searchIcon: {
+        marginRight: 10,
+    },
+    searchInput: {
+        flex: 1,
+        height: 40,
+        fontSize: 16,
+        color: '#333',
     },
     fieldItem: {
         flexDirection: 'row',
@@ -203,6 +260,8 @@ const styles = StyleSheet.create({
         padding: 12,
         borderRadius: 8,
         elevation: 2,
+        marginHorizontal: 15, // Added for consistency with search bar
+        marginBottom: 8, // Added for spacing between items
     },
     clientInfo: {
         flex: 1,
@@ -272,6 +331,7 @@ const styles = StyleSheet.create({
     separator: {
         height: 1,
         backgroundColor: '#e0e0e0',
+        marginHorizontal: 15, // Added for consistency with search bar
         marginVertical: 8,
     },
     overlay: {
@@ -281,6 +341,13 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         zIndex: 10, // Ensure overlay is on top
     },
+    emptyText: {
+        textAlign: 'center',
+        padding: 20,
+        color: '#666',
+        fontSize: 16,
+    },
 });
 
 export default ClientsScreen;
+

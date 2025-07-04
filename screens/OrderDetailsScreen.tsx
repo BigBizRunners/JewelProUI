@@ -16,8 +16,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
 // --- API URLs ---
-const GET_ORDER_DETAILS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getOrderDetails';
-const CHANGE_ORDER_STATUS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/changeOrderStatus';
+const GET_ORDER_DETAILS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_ORDER_DETAILS;
+const CHANGE_ORDER_STATUS_API_URL = process.env.EXPO_PUBLIC_API_URL_CHANGE_ORDER_STATUS;
 
 // --- Reusable Components ---
 

@@ -13,6 +13,7 @@ import ListOrdersScreen from "./screens/ListOrdersScreen";
 import OrderDetailsScreen from "./screens/OrderDetailsScreen";
 import FilterScreen from "./screens/FilterScreen";
 import MultiSelectListScreen from "./screens/MultiSelectListScreen";
+import ManageClientScreen from "./screens/ManageClientScreen";
 
 const Stack = createStackNavigator();
 
@@ -119,6 +120,17 @@ const AppNavigator = () => {
                     options={({ route }) => ({
                         title: route.params.title,
                         headerShown: true,
+                        headerStyle: { backgroundColor: '#075E54' },
+                        headerTintColor: '#fff',
+                        headerTitleStyle: { fontWeight: 'bold' },
+                    })}
+                />
+                <Stack.Screen
+                    name="ManageClient"
+                    component={ManageClientScreen}
+                    options={({ route }) => ({
+                        headerShown: true,
+                        headerTitle: route.params?.client ? 'Edit Client' : 'Add Client',
                         headerStyle: { backgroundColor: '#075E54' },
                         headerTintColor: '#fff',
                         headerTitleStyle: { fontWeight: 'bold' },

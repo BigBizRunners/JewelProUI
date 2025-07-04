@@ -11,7 +11,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const GET_ORDERS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getOrders';
+const GET_ORDERS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_ORDERS;
 
 // Helper function to calculate 'Due in X days' and determine color
 const formatDueDate = (dueDateStr) => {

@@ -5,7 +5,7 @@ import Header from '../components/Header';
 import Tile from '../components/Tile';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/get-dashboardDetails";
+const API_URL = process.env.EXPO_PUBLIC_API_URL_GET_DASHBOARD_DETAILS;
 
 const OrderScreen = ({ navigation }: any) => {
     const { data: ordersData, error, loading, fetchData } = useAuthenticatedFetch(navigation);

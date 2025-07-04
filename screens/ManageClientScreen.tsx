@@ -14,7 +14,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 
-const SINGLE_CLIENT_API_URL = "https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/handleClientOperation";
+const SINGLE_CLIENT_API_URL = process.env.EXPO_PUBLIC_API_URL_HANDLE_CLIENT_OPERATION;
 
 const ManageClientScreen = ({ route }: any) => {
     const navigation = useNavigation();

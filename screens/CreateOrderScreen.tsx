@@ -26,9 +26,9 @@ import DynamicFieldRenderer from '../components/DynamicFieldRenderer';
 import MediaUploader from '../components/MediaUploader';
 
 // API Endpoints
-const GET_CATEGORY_FIELDS_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getCreateOrderFields';
-const GET_PRESIGNED_URL_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/getPresignedUrls';
-const CREATE_ORDER_API_URL = 'https://vbxy1ldisi.execute-api.ap-south-1.amazonaws.com/Dev/createOrder';
+const GET_CATEGORY_FIELDS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_CREATE_ORDER_FIELDS;
+const GET_PRESIGNED_URL_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_PRESIGNED_URLS;
+const CREATE_ORDER_API_URL = process.env.EXPO_PUBLIC_API_URL_CREATE_ORDER;
 
 // --- REMOVED ProgressHeader component and headerStyles from here ---
 
