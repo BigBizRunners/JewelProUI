@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Dimensions, ActivityIndicator, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
 import Tile from '../components/Tile';
@@ -67,14 +67,11 @@ const OrderScreen = ({ navigation }: any) => {
 
         const combinedStates = [...defaultTiles, ...orderStates];
 
-        // FIX: The placeholder logic now works correctly with fixed-width tiles.
-        // We check the combined list length.
         if (combinedStates.length % 2 !== 0) {
             combinedStates.push({ id: 'placeholder', orderStateName: '' });
         }
 
         return combinedStates;
-
     }, [ordersData]);
 
     const statesForTabs = useMemo(() => {
@@ -101,13 +98,10 @@ const OrderScreen = ({ navigation }: any) => {
         };
 
         return uniqueById([...defaultTiles, ...orderStates]);
-
     }, [ordersData]);
-
 
     const renderTile = useCallback(({ item }: any) => {
         if (item.id === 'placeholder') {
-            // FIX: The placeholder is now a simple View with the same dimensions as a tile.
             return <View style={{ width: '48%', marginHorizontal: '1%' }} />;
         }
 
@@ -128,6 +122,30 @@ const OrderScreen = ({ navigation }: any) => {
             />
         );
     }, [navigation, statesForTabs]);
+
+    const renderChartSummary = () => {
+        const total = statesForTabs.reduce((sum, s) => sum + s.noOfOrders, 0);
+
+        return (
+            <View style={styles.chartCard}>
+                <View style={styles.donutOuter}>
+                    <View style={styles.donutInner}>
+                        <Text style={styles.donutCenterText}>{total}</Text>
+                    </View>
+                </View>
+                <View style={styles.legendWrapper}>
+                    {statesForTabs.map((item, index) => (
+                        <View key={index} style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: item.color || '#ccc' }]} />
+                            <Text style={styles.legendLabel}>{item.orderStateName}</Text>
+                            <Text style={styles.legendValue}>{item.noOfOrders}</Text>
+                        </View>
+                    ))}
+                </View>
+                <Text style={styles.chartTitle}>Order Status</Text>
+            </View>
+        );
+    };
 
     const renderContent = () => {
         if (loading && !ordersData) {
@@ -153,17 +171,26 @@ const OrderScreen = ({ navigation }: any) => {
                         buttonText="Create Order"
                         onPress={() => navigation.navigate('SelectCategory')}
                     />
-                    <FlatList
-                        data={dataForGrid}
-                        renderItem={renderTile}
-                        keyExtractor={(item) => String(item.id)}
-                        numColumns={2}
-                        columnWrapperStyle={styles.row}
-                        contentContainerStyle={styles.list}
+
+                    <ScrollView
+                        contentContainerStyle={{ paddingBottom: 20 }}
                         refreshControl={
                             <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={["#075E54"]}/>
                         }
-                    />
+                    >
+                        {renderChartSummary()}
+
+                        {/* Grid Tiles */}
+                        <FlatList
+                            data={dataForGrid}
+                            renderItem={renderTile}
+                            keyExtractor={(item) => String(item.id)}
+                            numColumns={2}
+                            columnWrapperStyle={styles.row}
+                            contentContainerStyle={styles.list}
+                            scrollEnabled={false}
+                        />
+                    </ScrollView>
                 </>
             );
         }
@@ -186,9 +213,7 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f7f7f7', paddingHorizontal: 10, paddingTop: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
     list: { paddingBottom: 20, paddingTop: 10 },
-    // FIX: Let the row justify normally. The percentage widths on the tiles handle the spacing.
     row: {},
-    // FIX: The component-specific `tile` style is no longer needed here.
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 10 },
     retryButton: {
         backgroundColor: '#075E54',
@@ -200,6 +225,69 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    chartCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        elevation: 2,
+        marginBottom: 16,
+        marginHorizontal: 6,
+        alignItems: 'center',
+    },
+    donutOuter: {
+        width: 140,
+        height: 140,
+        borderRadius: 70,
+        borderWidth: 14,
+        borderColor: '#b2dfdb',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    donutInner: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    donutCenterText: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    legendWrapper: {
+        width: '100%',
+        marginTop: 16,
+    },
+    legendItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 4,
+    },
+    legendDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginRight: 8,
+    },
+    legendLabel: {
+        flex: 1,
+        fontSize: 14,
+        color: '#000',
+    },
+    legendValue: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    chartTitle: {
+        marginTop: 12,
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#000',
     },
 });
 
