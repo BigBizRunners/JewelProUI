@@ -1,112 +1,118 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import Svg, { G, Circle } from 'react-native-svg';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
-const DonutChartCard = ({ data }) => {
-    const size = 140;
-    const strokeWidth = 16;
-    const radius = (size - strokeWidth) / 2;
+const DonutChartCard = ({ states }) => {
+    const total = states.reduce((sum, s) => sum + (s.noOfOrders || 0), 0);
+    const radius = 60;
     const circumference = 2 * Math.PI * radius;
-    const total = data.reduce((sum, d) => sum + d.value, 0);
+    let accumulatedPercentage = 0;
 
-    let cumulativePercent = 0;
-
-    const renderSegments = () =>
-        data.map((item, index) => {
-            const percent = item.value / total;
-            const strokeDasharray = `${percent * circumference}, ${circumference}`;
-            const strokeDashoffset = circumference * (1 - cumulativePercent);
-            const segment = (
-                <Circle
-                    key={index}
-                    cx={size / 2}
-                    cy={size / 2}
-                    r={radius}
-                    stroke={item.color || '#ccc'}
-                    strokeWidth={strokeWidth}
-                    strokeDasharray={strokeDasharray}
-                    strokeDashoffset={strokeDashoffset}
-                    strokeLinecap="butt"
-                    fill="transparent"
-                />
-            );
-            cumulativePercent += percent;
-            return segment;
-        });
+    const chartStates = states.filter(s => s.noOfOrders > 0);
 
     return (
-        <View style={styles.card}>
-            <View style={styles.row}>
-                <View style={styles.chartWrapper}>
-                    <Svg width={size} height={size}>
-                        <G rotation="-90" origin={`${size / 2}, ${size / 2}`}>
-                            {renderSegments()}
-                        </G>
-                    </Svg>
-                    <View style={styles.centerLabel}>
-                        <Text style={styles.totalText}>{total}</Text>
-                    </View>
-                </View>
+        <View style={styles.chartCard}>
+            <View style={styles.chartContainer}>
+                <Svg height="150" width="150" viewBox="0 0 150 150">
+                    <Circle
+                        cx="75"
+                        cy="75"
+                        r={radius}
+                        fill="transparent"
+                        stroke="#e6e6e6"
+                        strokeWidth="22"
+                    />
+                    {chartStates.map((state, index) => {
+                        const percentage = total > 0 ? (state.noOfOrders / total) * 100 : 0;
+                        const arcLength = (percentage / 100) * circumference;
+                        const offset = -(accumulatedPercentage / 100) * circumference;
+                        accumulatedPercentage += percentage;
 
-                <View style={styles.legendWrapper}>
-                    {data.map((item, index) => (
-                        <View key={index} style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: item.color || '#ccc' }]} />
-                            <Text style={styles.legendLabel}>{item.label}</Text>
-                            <Text style={styles.legendValue}>{item.value}</Text>
-                        </View>
-                    ))}
+                        return (
+                            <Circle
+                                key={index}
+                                cx="75"
+                                cy="75"
+                                r={radius}
+                                fill="transparent"
+                                stroke={state.color || '#ccc'}
+                                strokeWidth="22"
+                                strokeDasharray={`${arcLength} ${circumference}`}
+                                strokeDashoffset={offset}
+                                rotation="-90"
+                                origin="75, 75"
+                            />
+                        );
+                    })}
+                </Svg>
+                <View style={styles.donutCenter}>
+                    <Text style={styles.donutCenterText}>{total}</Text>
                 </View>
             </View>
-            <Text style={styles.chartTitle}>Order Status</Text>
+            <View style={styles.legendContainer}>
+                <Text style={styles.legendTitle}>Order Status</Text>
+                <ScrollView>
+                    {states.map((item, index) => (
+                        <View key={index} style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: item.color || '#ccc' }]} />
+                            <Text style={styles.legendLabel}>{item.orderStateName}</Text>
+                            <Text style={styles.legendValue}>{item.noOfOrders}</Text>
+                        </View>
+                    ))}
+                </ScrollView>
+            </View>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
-    card: {
+    chartCard: {
         backgroundColor: '#fff',
         borderRadius: 12,
         padding: 16,
-        marginHorizontal: 10,
-        marginVertical: 12,
-        elevation: 3,
-        alignItems: 'center',
-    },
-    row: {
+        elevation: 2,
+        marginBottom: 16,
+        marginHorizontal: 6,
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        height: 220,
     },
-    chartWrapper: {
-        width: 140,
-        height: 140,
+    chartContainer: {
+        alignItems: 'center',
         justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
     },
-    centerLabel: {
+    donutCenter: {
         position: 'absolute',
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: '#fff',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    totalText: {
-        fontSize: 20,
+    donutCenterText: {
+        fontSize: 18,
         fontWeight: 'bold',
         color: '#000',
     },
-    legendWrapper: {
-        marginLeft: 20,
+    chartLabel: {
+        marginTop: 8,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#000',
+    },
+    legendContainer: {
         flex: 1,
+        marginLeft: 24,
+        height: '100%',
+    },
+    legendTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 8,
     },
     legendItem: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingVertical: 6,
+        paddingVertical: 4,
     },
     legendDot: {
         width: 12,
@@ -122,12 +128,6 @@ const styles = StyleSheet.create({
     legendValue: {
         fontSize: 14,
         fontWeight: 'bold',
-        color: '#000',
-    },
-    chartTitle: {
-        marginTop: 12,
-        fontSize: 16,
-        fontWeight: '600',
         color: '#000',
     },
 });
