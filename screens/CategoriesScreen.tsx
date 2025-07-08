@@ -35,7 +35,6 @@ const CategoriesScreen = ({ navigation }: any) => {
             console.log("CategoriesScreen focused, re-fetching data");
             fetchData({
                 url: GET_CATEGORIES_API_URL,
-                data: { "isCategoriesScreen": "true" },
             });
         });
         return unsubscribe;

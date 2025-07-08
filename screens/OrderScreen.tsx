@@ -2,9 +2,9 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, RefreshControl, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Header from '../components/Header';
-import Tile from '../components/Tile';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 import DonutChartCard from '../components/DonutChartCard';
+import StatusListItem from '../components/StatusListItem';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL_GET_DASHBOARD_DETAILS;
 
@@ -52,27 +52,22 @@ const OrderScreen = ({ navigation }: any) => {
         return { allOrders, pendingOrders };
     };
 
-    const dataForGrid = useMemo(() => {
+    const dataForList = useMemo(() => {
         const rawStates = ordersData?.ordersPerState?.ordersPerState || [];
-        const orderStates = rawStates.map(state => ({
+        const orderStatesWithColor = rawStates.map(state => ({
             ...state,
             id: state.orderStateId,
+            color: '#bdbdbd'
         }));
 
-        const { allOrders, pendingOrders } = calculateTotals(orderStates);
+        const { allOrders, pendingOrders } = calculateTotals(rawStates);
 
-        const defaultTiles = [
+        const defaultItems = [
             { id: 'allOrders', orderStateName: 'All Orders', ...allOrders, color: '#28a745' },
             { id: 'pendingOrders', orderStateName: 'Pending Orders', ...pendingOrders, color: 'rgb(244,68,102)' },
         ];
 
-        const combinedStates = [...defaultTiles, ...orderStates];
-
-        if (combinedStates.length % 2 !== 0) {
-            combinedStates.push({ id: 'placeholder', orderStateName: '' });
-        }
-
-        return combinedStates;
+        return [...defaultItems, ...orderStatesWithColor];
     }, [ordersData]);
 
     const orderStates = useMemo(() => {
@@ -80,12 +75,10 @@ const OrderScreen = ({ navigation }: any) => {
         const colors = [
             '#075E54',
             '#4DB6AC',
-            '#81C784',
+            '#60dc64',
             '#FFB74D',
-            '#FFD54F',
-            '#BA68C8',
+            '#e8c4f1',
             '#64B5F6',
-            '#4FC3F7',
             '#F06292',
             '#FF8A65',
             '#A1887F',
@@ -121,15 +114,11 @@ const OrderScreen = ({ navigation }: any) => {
         return uniqueById([...defaultTiles, ...orderStates]);
     }, [orderStates]);
 
-    const renderTile = useCallback(({ item }: any) => {
-        if (item.id === 'placeholder') {
-            return <View style={{ width: '48%', marginHorizontal: '1%' }} />;
-        }
-
+    const renderListItem = useCallback(({ item }: any) => {
         const weightRange = `${item.weightFrom?.toFixed(2) || '0.00'} - ${item.weightTo?.toFixed(2) || '0.00'} gms`;
 
         return (
-            <Tile
+            <StatusListItem
                 title={item.orderStateName}
                 orders={item.noOfOrders}
                 quantity={item.totalQuantity}
@@ -177,13 +166,10 @@ const OrderScreen = ({ navigation }: any) => {
                     >
                         <DonutChartCard states={orderStates} />
 
-                        {/* Grid Tiles */}
                         <FlatList
-                            data={dataForGrid}
-                            renderItem={renderTile}
+                            data={dataForList}
+                            renderItem={renderListItem}
                             keyExtractor={(item) => String(item.id)}
-                            numColumns={2}
-                            columnWrapperStyle={styles.row}
                             contentContainerStyle={styles.list}
                             scrollEnabled={false}
                         />
@@ -210,7 +196,6 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f7f7f7', paddingHorizontal: 10, paddingTop: 20 },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
     list: { paddingBottom: 20, paddingTop: 10 },
-    row: {},
     errorText: { color: 'red', fontSize: 16, textAlign: 'center', marginBottom: 10 },
     retryButton: {
         backgroundColor: '#075E54',
