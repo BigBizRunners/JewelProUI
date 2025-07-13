@@ -25,7 +25,6 @@ const SelectCategoryScreen = ({ navigation }: any) => {
         const unsubscribe = navigation.addListener('focus', () => {
             fetchData({
                 url: GET_CATEGORIES_API_URL,
-                data: { isCategoriesScreen: true },
             });
         });
         return unsubscribe;

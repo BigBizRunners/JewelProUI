@@ -34,7 +34,6 @@ const MultiSelectListScreen = () => {
             } else if (selectionType === 'categories') {
                 url = GET_CATEGORIES_API_URL;
                 params.method = 'POST';
-                params.data = { isCategoriesScreen: "true" };
             } else {
                 return;
             }

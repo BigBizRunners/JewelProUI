@@ -30,16 +30,16 @@ const DetailRow = ({ icon, label, value }) => (
 );
 
 const DynamicFieldsSection = ({ title, fields }) => {
-    if (!fields || Object.keys(fields).length === 0) {
+    if (!fields || fields.length === 0) {
         return null;
     }
 
     return (
         <View style={styles.section}>
             <Text style={styles.sectionTitle}>{title}</Text>
-            {Object.entries(fields).map(([fieldId, fieldValue]) => {
-                const displayValue = fieldValue.values?.join(', ') || 'N/A';
-                return <DetailRow key={fieldId} icon="tune" label={fieldId} value={displayValue} />;
+            {fields.map((field) => {
+                const displayValue = field.value?.values?.join(', ') || 'N/A';
+                return <DetailRow key={field.fieldId} icon="tune" label={field.fieldName} value={displayValue} />;
             })}
         </View>
     );
