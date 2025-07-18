@@ -161,9 +161,9 @@ const ListOrdersScreen = ({ route, navigation }) => {
         }
     }, [selectedStateId, filters, fetchData, lastEvaluatedKey, loading]);
 
-    const handleRefresh = () => {
+    const handleRefresh = useCallback(() => {
         getOrders(true);
-    };
+    }, [getOrders]);
 
     const handleLoadMore = () => {
         if (hasNextPage && !loading) {
@@ -181,11 +181,11 @@ const ListOrdersScreen = ({ route, navigation }) => {
         });
 
         return unsubscribe;
-    }, [navigation]);
+    }, [navigation, handleRefresh]);
 
     useEffect(() => {
         handleRefresh();
-    }, [selectedStateId, filters]);
+    }, [selectedStateId]);
 
 
     const handleStateSelect = (stateId) => {
