@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View,
     Text,
@@ -99,9 +99,12 @@ const ListOrdersScreen = ({ route, navigation }) => {
     const [allStates, setAllStates] = useState(initialStates || []);
     const [filters, setFilters] = useState({});
     const [error, setError] = useState(null);
-    const { data, error: fetchError, loading, fetchData } = useAuthenticatedFetch(navigation);
+    const [loading, setLoading] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const isInitialMount = useRef(true);
 
-    // FIX: Pass a callback to the filter screen to receive updated filters
+    const { fetchData } = useAuthenticatedFetch(navigation);
+
     const openFilterScreen = () => {
         navigation.navigate('FilterScreen', {
             currentFilters: filters,
@@ -124,58 +127,66 @@ const ListOrdersScreen = ({ route, navigation }) => {
         });
     }, [navigation, filters]);
 
-    // This useEffect is no longer needed because we use the onApply callback
-    // useEffect(() => {
-    //     if (route.params?.newFilters) {
-    //         setFilters(route.params.newFilters);
-    //         navigation.setParams({ newFilters: null }); // Clear params
-    //     }
-    // }, [route.params?.newFilters]);
+    const getOrders = useCallback(async (isRefresh) => {
+        if (loading) return;
 
-    const fetchOrdersAPI = useCallback(async (isInitialFetch = true) => {
+        setLoading(true);
+        if (isRefresh) {
+            setIsRefreshing(true);
+        }
         setError(null);
-        let keyToUse = isInitialFetch ? null : lastEvaluatedKey;
+
+        const keyToUse = isRefresh ? null : lastEvaluatedKey;
 
         const payload = {
             stateId: selectedStateId,
             limit: 15,
             lastEvaluatedKey: keyToUse,
-            filters: {
-                ...filters,
-            },
+            filters: { ...filters },
         };
 
         const response = await fetchData({ url: GET_ORDERS_API_URL, method: 'POST', data: payload });
 
         if (response?.status === 'success' && response.orders) {
-            setOrders(prev => (isInitialFetch ? response.orders : [...prev, ...response.orders]));
+            setOrders(prev => isRefresh ? response.orders : [...prev, ...response.orders]);
             setLastEvaluatedKey(response.pagination?.lastEvaluatedKey || null);
             setHasNextPage(!!response.pagination?.lastEvaluatedKey);
         } else {
-            setError(response?.message || fetchError || 'Failed to fetch orders');
+            setError(response?.message || 'Failed to fetch orders');
         }
-    }, [selectedStateId, filters, lastEvaluatedKey, hasNextPage, loading]);
 
-    // Fetch orders when stateId or filters change
+        setLoading(false);
+        if (isRefresh) {
+            setIsRefreshing(false);
+        }
+    }, [selectedStateId, filters, fetchData, lastEvaluatedKey, loading]);
+
+    const handleRefresh = () => {
+        getOrders(true);
+    };
+
+    const handleLoadMore = () => {
+        if (hasNextPage && !loading) {
+            getOrders(false);
+        }
+    };
+
     useEffect(() => {
-        setOrders([]);
-        setLastEvaluatedKey(null);
-        setHasNextPage(true);
-        fetchOrdersAPI(true);
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (isInitialMount.current) {
+                isInitialMount.current = false;
+            } else {
+                handleRefresh();
+            }
+        });
+
+        return unsubscribe;
+    }, [navigation]);
+
+    useEffect(() => {
+        handleRefresh();
     }, [selectedStateId, filters]);
 
-    const handleLoadMore = useCallback(() => {
-        if (!loading && hasNextPage) {
-            fetchOrdersAPI(false);
-        }
-    }, [loading, hasNextPage]);
-
-    const handleRefresh = useCallback(() => {
-        setOrders([]);
-        setLastEvaluatedKey(null);
-        setHasNextPage(true);
-        fetchOrdersAPI(true);
-    }, [selectedStateId, filters]);
 
     const handleStateSelect = (stateId) => {
         if (stateId !== selectedStateId) {
@@ -222,14 +233,14 @@ const ListOrdersScreen = ({ route, navigation }) => {
                 onEndReached={handleLoadMore}
                 onEndReachedThreshold={0.5}
                 onRefresh={handleRefresh}
-                refreshing={loading && orders.length === 0}
+                refreshing={isRefreshing}
                 ListFooterComponent={() =>
-                    loading && orders.length > 0 ? (
+                    loading && !isRefreshing ? (
                         <ActivityIndicator size="large" color="#075E54" style={{ marginVertical: 20 }} />
                     ) : null
                 }
                 ListEmptyComponent={() =>
-                    !loading && !error ? (
+                    !loading && !isRefreshing && !error ? (
                         <View style={styles.centered}>
                             <Text style={styles.emptyText}>No orders found.</Text>
                         </View>

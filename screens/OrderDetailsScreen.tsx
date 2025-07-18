@@ -18,6 +18,7 @@ import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
 // --- API URLs ---
 const GET_ORDER_DETAILS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_ORDER_DETAILS;
 const CHANGE_ORDER_STATUS_API_URL = process.env.EXPO_PUBLIC_API_URL_CHANGE_ORDER_STATUS;
+const DELETE_ORDER_API_URL = process.env.EXPO_PUBLIC_API_URL_DELETE_ORDER;
 
 // --- Reusable Components ---
 
@@ -60,6 +61,14 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         fetchData: changeOrderStatus,
     } = useAuthenticatedFetch(navigation);
 
+    // A dedicated hook for the delete mutation
+    const {
+        data: deleteResponse,
+        error: deleteError,
+        loading: isDeleting,
+        fetchData: deleteOrder,
+    } = useAuthenticatedFetch(navigation);
+
     // State for image viewer modal
     const [selectedImage, setSelectedImage] = useState(null);
     const [isImageModalVisible, setIsImageModalVisible] = useState(false);
@@ -67,13 +76,54 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     // State for status change modal
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
 
-    // Set navigation options and disable gestures during status update
+    // --- Action Handlers ---
+
+    const handleDeletePress = () => {
+        Alert.alert(
+            "Delete Order",
+            "Are you sure you want to delete this order? This action cannot be undone.",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => {
+                        deleteOrder({
+                            url: DELETE_ORDER_API_URL,
+                            method: 'POST', // Assuming POST, could be DELETE
+                            data: { orderId },
+                        });
+                    },
+                },
+            ]
+        );
+    };
+
+    // Set navigation options and disable gestures during updates
     useEffect(() => {
         navigation.setOptions({
             title: `Order #${orderId.substring(0, 8)}...`,
-            gestureEnabled: !isUpdatingStatus, // Disable gestures during status update
+            gestureEnabled: !isUpdatingStatus && !isDeleting,
+            headerRight: () => (
+                <View style={{ flexDirection: 'row' }}>
+                    <TouchableOpacity
+                        onPress={() => Alert.alert('Edit', 'Edit functionality to be implemented.')}
+                        disabled={isUpdatingStatus || isDeleting}
+                        style={{ marginRight: 15 }}
+                    >
+                        <MaterialCommunityIcons name="pencil" size={24} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        onPress={handleDeletePress}
+                        disabled={isUpdatingStatus || isDeleting}
+                        style={{ marginRight: 15 }}
+                    >
+                        <MaterialCommunityIcons name="delete" size={24} color="#fff" />
+                    </TouchableOpacity>
+                </View>
+            ),
         });
-    }, [navigation, orderId, isUpdatingStatus]);
+    }, [navigation, orderId, isUpdatingStatus, isDeleting]);
 
     // Initial fetch of order details when the component mounts or orderId changes
     useEffect(() => {
@@ -102,7 +152,19 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         }
     }, [isUpdatingStatus, updateResponse, updateError]);
 
-    // --- Action Handlers ---
+    // Handle the result of the delete operation
+    useEffect(() => {
+        if (!isDeleting) {
+            if (deleteError) {
+                Alert.alert("Error", deleteError.message || "Failed to delete order.");
+            } else if (deleteResponse) {
+                Alert.alert("Success", "Order has been deleted.", [
+                    { text: "OK", onPress: () => navigation.goBack() }
+                ]);
+            }
+        }
+    }, [isDeleting, deleteResponse, deleteError, navigation]);
+
 
     const handleContactAction = (action, contactNumber) => {
         if (!contactNumber || contactNumber === 'N/A') {
@@ -164,6 +226,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     // --- Destructure data after loading and error checks ---
     const { clientDetails, orderInfo, statusHistory, allowedNextStatus } = data.orderDetails;
     const canChangeStatus = allowedNextStatus && allowedNextStatus.length > 0;
+    const isActionInProgress = isUpdatingStatus || isDeleting;
 
     return (
         <View style={{ flex: 1 }}>
@@ -177,14 +240,14 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                             <TouchableOpacity
                                 onPress={() => handleContactAction('call', clientDetails.contactNumber)}
                                 style={styles.actionButton}
-                                disabled={isUpdatingStatus}
+                                disabled={isActionInProgress}
                             >
                                 <MaterialCommunityIcons name="phone" size={24} color="#075E54" />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 onPress={() => handleContactAction('whatsapp', clientDetails.contactNumber)}
                                 style={styles.actionButton}
-                                disabled={isUpdatingStatus}
+                                disabled={isActionInProgress}
                             >
                                 <MaterialCommunityIcons name="whatsapp" size={24} color="#25D366" />
                             </TouchableOpacity>
@@ -200,7 +263,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                         <Text style={styles.sectionTitle}>Order Photos</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {orderInfo.imageUrls.map((url, index) => (
-                                <TouchableOpacity key={index} onPress={() => openImageModal(url)} disabled={isUpdatingStatus}>
+                                <TouchableOpacity key={index} onPress={() => openImageModal(url)} disabled={isActionInProgress}>
                                     <Image source={{ uri: url }} style={styles.photo} />
                                 </TouchableOpacity>
                             ))}
@@ -231,12 +294,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 </View>
             </ScrollView>
 
-            {/* --- Floating "Change Status" Button --- */}
             {canChangeStatus && (
                 <TouchableOpacity
-                    style={[styles.changeStatusButton, isUpdatingStatus ? styles.disabledButton : null]}
+                    style={[styles.changeStatusButton, isActionInProgress ? styles.disabledButton : {}]}
                     onPress={() => setIsStatusModalVisible(true)}
-                    disabled={isUpdatingStatus}
+                    disabled={isActionInProgress}
                 >
                     <MaterialCommunityIcons name="sync" size={22} color="#fff" />
                     <Text style={styles.changeStatusButtonText}>Change Status</Text>
@@ -248,14 +310,14 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 visible={isImageModalVisible}
                 transparent={true}
                 animationType="fade"
-                onRequestClose={() => !isUpdatingStatus && setIsImageModalVisible(false)}
+                onRequestClose={() => !isActionInProgress && setIsImageModalVisible(false)}
             >
                 <View style={styles.modalContainer}>
                     <Image source={{ uri: selectedImage }} style={styles.modalImage} resizeMode="contain" />
                     <TouchableOpacity
                         style={styles.closeButton}
                         onPress={() => setIsImageModalVisible(false)}
-                        disabled={isUpdatingStatus}
+                        disabled={isActionInProgress}
                     >
                         <MaterialCommunityIcons name="close" size={30} color="#fff" />
                     </TouchableOpacity>
@@ -268,11 +330,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                     visible={isStatusModalVisible}
                     transparent={true}
                     animationType="slide"
-                    onRequestClose={() => !isUpdatingStatus && setIsStatusModalVisible(false)}
+                    onRequestClose={() => !isActionInProgress && setIsStatusModalVisible(false)}
                 >
                     <Pressable
                         style={styles.statusModalBackdrop}
-                        onPress={() => !isUpdatingStatus && setIsStatusModalVisible(false)}
+                        onPress={() => !isActionInProgress && setIsStatusModalVisible(false)}
                     >
                         <View style={styles.statusModalContent}>
                             <View style={styles.handleBar} />
@@ -282,7 +344,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                                     key={status.id}
                                     style={styles.statusOption}
                                     onPress={() => handleStatusUpdate(status)}
-                                    disabled={isUpdatingStatus}
+                                    disabled={isActionInProgress}
                                 >
                                     <Text style={styles.statusOptionText}>{status.name}</Text>
                                 </TouchableOpacity>
@@ -290,7 +352,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                             <TouchableOpacity
                                 style={styles.cancelButton}
                                 onPress={() => setIsStatusModalVisible(false)}
-                                disabled={isUpdatingStatus}
+                                disabled={isActionInProgress}
                             >
                                 <Text style={styles.cancelButtonText}>Cancel</Text>
                             </TouchableOpacity>
@@ -299,11 +361,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 </Modal>
             )}
 
-            {/* --- Full-Screen Loader for Status Update --- */}
-            {isUpdatingStatus && (
+            {/* --- Full-Screen Loader for Status Update or Deletion --- */}
+            {isActionInProgress && (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#0000ff" />
-                    <Text style={styles.loadingText}>Updating status...</Text>
+                    <Text style={styles.loadingText}>{isDeleting ? 'Deleting order...' : 'Updating status...'}</Text>
                 </View>
             )}
         </View>

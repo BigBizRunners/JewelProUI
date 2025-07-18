@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import jwtDecode from 'jwt-decode';
@@ -36,7 +36,7 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
         }
     };
 
-    const handleLogoutNavigation = () => {
+    const handleLogoutNavigation = useCallback(() => {
         // Only trigger navigation if another hook instance hasn't already.
         if (!isNavigatingToLogin) {
             isNavigatingToLogin = true;
@@ -48,9 +48,9 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
                     }},
             ]);
         }
-    };
+    }, [navigation]);
 
-    const fetchData = async (fetchOptions: FetchOptions) => {
+    const fetchData = useCallback(async (fetchOptions: FetchOptions) => {
         // If a logout navigation is already in progress, stop immediately.
         if (isNavigatingToLogin) return null;
 
@@ -116,7 +116,7 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
                 setHasCheckedSession(true);
             }
         }
-    };
+    }, [refreshSession, handleLogoutNavigation]);
 
     useEffect(() => {
         componentIsMounted.current = true;
@@ -129,7 +129,7 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
         return () => {
             componentIsMounted.current = false;
         };
-    }, [navigation, hasCheckedSession, options?.url]); // Simplified dependencies
+    }, [hasCheckedSession, options?.autoFetch, options?.url, fetchData]); // Corrected dependencies
 
     return { data, error, loading, fetchData };
 };

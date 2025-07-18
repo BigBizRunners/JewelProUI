@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { CognitoUser, CognitoUserSession, CognitoRefreshToken } from 'amazon-cognito-identity-js';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { CognitoUser, CognitoUserSession } from 'amazon-cognito-identity-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import jwtDecode from 'jwt-decode';
 import userPool from '../cognitoConfig';
@@ -20,54 +20,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [cognitoUser, setCognitoUser] = useState<CognitoUser | null>(null);
     const [session, setSession] = useState<CognitoUserSession | null>(null);
 
-    useEffect(() => {
-        const loadSession = async () => {
-            try {
-                const storedToken = await AsyncStorage.getItem('authToken');
-                const storedUsername = await AsyncStorage.getItem('cognitoUsername');
-
-                if (storedToken && storedUsername) {
-                    const user = new CognitoUser({
-                        Username: storedUsername,
-                        Pool: userPool,
-                    });
-                    setCognitoUser(user);
-
-                    if (!isTokenExpired(storedToken)) {
-                        console.log("Token still valid, skipping getSession");
-                        return;
-                    }
-
-                    // Wrap getSession in a Promise
-                    const sessionPromise = new Promise<CognitoUserSession>((resolve, reject) => {
-                        user.getSession((err: any, session: CognitoUserSession | PromiseLike<CognitoUserSession>) => {
-                            if (err || !session) {
-                                reject(err || new Error('No valid session'));
-                            } else {
-                                resolve(session);
-                            }
-                        });
-                    });
-
-                    try {
-                        const session = await sessionPromise;
-                        setSession(session);
-                        AsyncStorage.setItem('authToken', session.getIdToken().getJwtToken());
-                    } catch (err) {
-                        console.error('Failed to load session on startup:', err);
-                        await refreshSession().catch(async () => {
-                            await logout();
-                        });
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading session:', error);
-                await logout();
-            }
-        };
-        loadSession();
-    }, []);
-
     const isTokenExpired = (token: string): boolean => {
         try {
             const decoded: { exp: number } = jwtDecode(token);
@@ -78,11 +30,53 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
-    const isAuthenticated = async (): Promise<boolean> => {
+    const logout = useCallback(async () => {
+        const currentUser = userPool.getCurrentUser();
+        if (currentUser) {
+            currentUser.signOut();
+        }
+        setCognitoUser(null);
+        setSession(null);
+        await AsyncStorage.removeItem('authToken');
+        await AsyncStorage.removeItem('cognitoUsername');
+    }, []);
+
+    const refreshSession = useCallback(async () => {
+        const currentUser = userPool.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('No Cognito user available for session refresh.');
+        }
+
+        return new Promise<void>((resolve, reject) => {
+            currentUser.getSession((err: any, session: CognitoUserSession) => {
+                if (err || !session || !session.isValid()) {
+                    const refreshTokenString = session?.getRefreshToken()?.getToken();
+                    if (!refreshTokenString) {
+                        return reject(new Error('No refresh token available'));
+                    }
+                    const RefreshToken = session.getRefreshToken();
+                    currentUser.refreshSession(RefreshToken, (refreshErr, newSession) => {
+                        if (refreshErr || !newSession) {
+                            return reject(refreshErr || new Error('Failed to refresh session'));
+                        }
+                        setSession(newSession);
+                        AsyncStorage.setItem('authToken', newSession.getIdToken().getJwtToken());
+                        resolve();
+                    });
+                } else {
+                    setSession(session);
+                    AsyncStorage.setItem('authToken', session.getIdToken().getJwtToken());
+                    resolve();
+                }
+            });
+        });
+    }, []);
+
+    const isAuthenticated = useCallback(async (): Promise<boolean> => {
         const token = await AsyncStorage.getItem('authToken');
         if (!token) return false;
 
-        if (isTokenExpired(token) && cognitoUser) {
+        if (isTokenExpired(token)) {
             try {
                 await refreshSession();
                 return true;
@@ -91,58 +85,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
         }
         return true;
-    };
+    }, [refreshSession]);
 
-    const refreshSession = async () => {
-        if (!cognitoUser) {
-            throw new Error('No Cognito user available');
-        }
-
-        return new Promise<void>((resolve, reject) => {
-            cognitoUser.getSession((err: any, session) => {
-                if (err || !session || !session.getIdToken) {
-                    console.error('Get session failed:', err || 'Invalid session');
-                    reject(err || new Error('No valid session'));
-                    return;
-                }
-
-                const token = session.getIdToken().getJwtToken();
-                if (isTokenExpired(token)) {
-                    const refreshToken = session.getRefreshToken();
-                    if (!refreshToken) {
-                        console.error('No refresh token available');
-                        reject(new Error('No refresh token available'));
-                        return;
-                    }
-
-                    cognitoUser.refreshSession(refreshToken, (refreshErr, newSession) => {
-                        if (refreshErr || !newSession || !newSession.getIdToken) {
-                            console.error('Refresh session failed:', refreshErr);
-                            reject(refreshErr || new Error('Failed to refresh session'));
-                        } else {
-                            setSession(newSession);
-                            AsyncStorage.setItem('authToken', newSession.getIdToken().getJwtToken());
-                            resolve();
-                        }
+    useEffect(() => {
+        const loadSession = async () => {
+            try {
+                const storedUsername = await AsyncStorage.getItem('cognitoUsername');
+                if (storedUsername) {
+                    const user = new CognitoUser({
+                        Username: storedUsername,
+                        Pool: userPool,
                     });
-                } else {
-                    setSession(session);
-                    AsyncStorage.setItem('authToken', token);
-                    resolve();
+                    setCognitoUser(user);
+                    await refreshSession();
                 }
-            });
-        });
-    };
-
-    const logout = async () => {
-        if (cognitoUser) {
-            cognitoUser.signOut();
-        }
-        setCognitoUser(null);
-        setSession(null);
-        await AsyncStorage.removeItem('authToken');
-        await AsyncStorage.removeItem('cognitoUsername');
-    };
+            } catch (error) {
+                console.error('Error loading initial session:', error);
+                await logout();
+            }
+        };
+        loadSession();
+    }, [logout, refreshSession]);
 
     useEffect(() => {
         if (session && typeof session.getIdToken === 'function') {
@@ -151,8 +114,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
     }, [session]);
 
+    const authContextValue = useMemo(() => ({
+        cognitoUser,
+        session,
+        setCognitoUser,
+        setSession,
+        logout,
+        isAuthenticated,
+        refreshSession
+    }), [cognitoUser, session, logout, isAuthenticated, refreshSession]);
+
     return (
-        <AuthContext.Provider value={{ cognitoUser, session, setCognitoUser, setSession, logout, isAuthenticated, refreshSession }}>
+        <AuthContext.Provider value={authContextValue}>
             {children}
         </AuthContext.Provider>
     );
