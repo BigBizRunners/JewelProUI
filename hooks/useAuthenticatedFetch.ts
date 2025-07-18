@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import jwtDecode from 'jwt-decode';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
 
 interface FetchOptions {
@@ -57,14 +57,14 @@ const useAuthenticatedFetch = (navigation: any, options?: FetchOptions) => {
         setLoading(true);
         try {
             console.log("Fetching data for fetch options " + JSON.stringify(fetchOptions));
-            let token = await AsyncStorage.getItem("authToken");
+            let token = await SecureStore.getItemAsync("authToken");
 
             // Check if the session is valid, if not, try to refresh it.
             if (!token || isTokenExpired(token)) {
                 console.log("Token missing or expired, attempting refresh...");
                 try {
                     await refreshSession();
-                    token = await AsyncStorage.getItem("authToken");
+                    token = await SecureStore.getItemAsync("authToken");
                 } catch (refreshError) {
                     console.error("Session refresh failed:", refreshError);
                     setError("Session expired, please log in again");

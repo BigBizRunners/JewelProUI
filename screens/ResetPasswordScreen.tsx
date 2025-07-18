@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../components/AuthContext';
 import Icon from "react-native-vector-icons/FontAwesome5";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from 'expo-secure-store';
 
 const ResetPasswordScreen = ({ navigation }: any) => {
     const { cognitoUser, setSession } = useAuth();
@@ -66,8 +66,8 @@ const ResetPasswordScreen = ({ navigation }: any) => {
                 setLoading(false);
                 setIsResetting(false);
                 const newToken = session.getIdToken().getJwtToken();
-                await AsyncStorage.setItem('authToken', newToken);
-                await AsyncStorage.setItem('cognitoUsername', cognitoUser.getUsername());
+                await SecureStore.setItemAsync('authToken', newToken);
+                await SecureStore.setItemAsync('cognitoUsername', cognitoUser.getUsername());
                 Alert.alert('Success', 'Password updated successfully', [
                     { text: 'OK', onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Home' }] }) }
                 ]);

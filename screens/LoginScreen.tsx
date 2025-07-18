@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome5';
 import { CognitoUser, AuthenticationDetails } from 'amazon-cognito-identity-js';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import userPool from '../cognitoConfig';
 import { useAuth } from '../components/AuthContext';
 import { BackHandler } from 'react-native';
@@ -21,13 +21,14 @@ import { BackHandler } from 'react-native';
 const LoginScreen = ({ navigation }: any) => {
     useEffect(() => {
         const checkToken = async () => {
-            const token = await AsyncStorage.getItem('authToken');
+            const token = await SecureStore.getItemAsync('authToken');
             if (token) {
                 navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             }
         };
         checkToken();
     }, []);
+
 
     useEffect(() => {
         const backAction = () => true;
@@ -68,8 +69,8 @@ const LoginScreen = ({ navigation }: any) => {
             onSuccess: async (result) => {
                 setLoading(false);
                 const token = result.getIdToken().getJwtToken();
-                await AsyncStorage.setItem('authToken', token);
-                await AsyncStorage.setItem('cognitoUsername', `+91${mobileNumber}`);
+                await SecureStore.setItemAsync('authToken', token);
+                await SecureStore.setItemAsync('cognitoUsername', `+91${mobileNumber}`);
                 setCognitoUser(user);
                 setSession(result);
                 navigation.reset({ index: 0, routes: [{ name: 'Home', params: { phoneNumber: `+91${mobileNumber}` } }] });
