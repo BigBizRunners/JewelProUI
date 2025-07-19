@@ -17,7 +17,7 @@ const MAX_MEDIA = 5;
 const MAX_PDFS = 2; // Changed to 2
 const MAX_VIDEO_DURATION = 30; // seconds
 
-const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles }: any) => {
+const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRemoveMedia }: any) => {
     const pickMediaFiles = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
@@ -86,7 +86,11 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles }: any
     };
 
     const removeMedia = (uri: string) => {
-        setMediaFiles(mediaFiles.filter(file => file.uri !== uri));
+        if (onRemoveMedia) {
+            onRemoveMedia(uri);
+        } else {
+            setMediaFiles(mediaFiles.filter(file => file.uri !== uri));
+        }
     };
 
     const removePdf = (uri: string) => {

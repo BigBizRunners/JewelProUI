@@ -107,8 +107,12 @@ const OrderDetailsScreen = ({ route, navigation }) => {
             headerRight: () => (
                 <View style={{ flexDirection: 'row' }}>
                     <TouchableOpacity
-                        onPress={() => Alert.alert('Edit', 'Edit functionality to be implemented.')}
-                        disabled={isUpdatingStatus || isDeleting}
+                        onPress={() => {
+                            if (data && data.orderDetails) {
+                                navigation.navigate('CreateOrder', { orderDetails: data.orderDetails });
+                            }
+                        }}
+                        disabled={isUpdatingStatus || isDeleting || !data?.orderDetails}
                         style={{ marginRight: 15 }}
                     >
                         <MaterialCommunityIcons name="pencil" size={24} color="#fff" />
@@ -123,7 +127,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 </View>
             ),
         });
-    }, [navigation, orderId, isUpdatingStatus, isDeleting]);
+    }, [navigation, orderId, isUpdatingStatus, isDeleting, data]);
 
     // Initial fetch of order details when the component mounts or orderId changes
     useEffect(() => {

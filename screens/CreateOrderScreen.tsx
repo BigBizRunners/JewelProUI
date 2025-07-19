@@ -30,8 +30,6 @@ const GET_CATEGORY_FIELDS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_CREATE_O
 const GET_PRESIGNED_URL_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_PRESIGNED_URLS;
 const CREATE_ORDER_API_URL = process.env.EXPO_PUBLIC_API_URL_CREATE_ORDER;
 
-// --- REMOVED ProgressHeader component and headerStyles from here ---
-
 // Map backend FieldType to frontend field type
 const mapFieldType = (backendType) => {
     switch (backendType) {
@@ -60,7 +58,10 @@ const mapApiFieldsToFrontend = (apiFields) => {
 
 
 const CreateOrderScreen = ({ navigation, route }) => {
-    const { categoryId } = route.params;
+    const { categoryId: categoryIdFromParams, orderDetails } = route.params || {};
+    const isEditMode = !!orderDetails;
+    const categoryId = isEditMode ? orderDetails.orderInfo.categoryId : categoryIdFromParams;
+
     const { data: fieldsData, error, loading: fieldsLoading, fetchData } = useAuthenticatedFetch(navigation);
     const fetchDataRef = useRef(fetchData);
 
@@ -80,21 +81,68 @@ const CreateOrderScreen = ({ navigation, route }) => {
     const [mediaFiles, setMediaFiles] = useState([]);
     const [pdfFiles, setPdfFiles] = useState([]);
     const [dynamicFields, setDynamicFields] = useState([]);
+    const [initialMediaFiles, setInitialMediaFiles] = useState([]);
+    const [removedMediaFiles, setRemovedMediaFiles] = useState([]);
 
     useEffect(() => {
         fetchDataRef.current = fetchData;
     }, [fetchData]);
 
     useEffect(() => {
-        const loadFields = async () => {
+        const loadFieldsAndPopulate = async () => {
             try {
                 const response = await fetchDataRef.current({
                     url: GET_CATEGORY_FIELDS_API_URL,
                     method: 'POST',
                     data: { categoryId, orderFields: true },
                 });
+
                 if (response?.status === 'success' && Array.isArray(response.orderFields)) {
-                    setDynamicFields(mapApiFieldsToFrontend(response.orderFields));
+                    const frontendFields = mapApiFieldsToFrontend(response.orderFields);
+                    setDynamicFields(frontendFields);
+
+                    if (isEditMode) {
+                        const { clientDetails, orderInfo } = orderDetails;
+
+                        setSelectedClient({
+                            clientId: clientDetails.clientId,
+                            name: clientDetails.name,
+                            contactNumber: clientDetails.contactNumber,
+                        });
+
+                        const [weightFrom, weightTo] = orderInfo.weight.replace(/ gms$/, '').split(' - ');
+
+                        const allDynamicFieldsFromOrder = [...orderInfo.generalFields, ...orderInfo.categorySpecificFields];
+                        const dynamicFieldValues = allDynamicFieldsFromOrder.reduce((acc, field) => {
+                            const fieldInfo = frontendFields.find(f => f.name === field.fieldId);
+                            if (fieldInfo) {
+                                if (fieldInfo.multiSelect) {
+                                    acc[field.fieldId] = field.value.values;
+                                } else {
+                                    acc[field.fieldId] = field.value.values[0];
+                                }
+                            }
+                            return acc;
+                        }, {});
+
+                        setForm({
+                            orderDate: new Date(orderInfo.orderDate),
+                            deliveryDueDate: new Date(orderInfo.deliveryDueDate),
+                            referenceNo: orderInfo.referenceNo || '',
+                            quantity: String(orderInfo.quantity),
+                            weightFrom: weightFrom || '',
+                            weightTo: weightTo || '',
+                            narration: orderInfo.narration,
+                            priority: orderInfo.priority,
+                            dynamicFields: dynamicFieldValues,
+                        });
+
+                        if (orderInfo.imageUrls) {
+                            const initialFiles = orderInfo.imageUrls.map(uri => ({ uri, type: 'image', isExisting: true }));
+                            setMediaFiles(initialFiles);
+                            setInitialMediaFiles(initialFiles);
+                        }
+                    }
                 } else {
                     setDynamicFields([]);
                 }
@@ -102,8 +150,8 @@ const CreateOrderScreen = ({ navigation, route }) => {
                 Alert.alert('Error', 'Failed to fetch dynamic fields.');
             }
         };
-        loadFields();
-    }, [categoryId]);
+        loadFieldsAndPopulate();
+    }, [categoryId, orderDetails]);
 
     useFocusEffect(
         useCallback(() => {
@@ -133,6 +181,14 @@ const CreateOrderScreen = ({ navigation, route }) => {
         setSelectedClient(client);
     };
 
+    const handleRemoveMedia = (uri) => {
+        const fileToRemove = mediaFiles.find(file => file.uri === uri);
+        if (fileToRemove && fileToRemove.isExisting) {
+            setRemovedMediaFiles(prev => [...prev, fileToRemove]);
+        }
+        setMediaFiles(prev => prev.filter(file => file.uri !== uri));
+    };
+
     const handleSubmit = async () => {
         // --- FORM VALIDATION ---
         if (!selectedClient) {
@@ -144,25 +200,17 @@ const CreateOrderScreen = ({ navigation, route }) => {
         setSubmissionLoading(true);
 
         try {
-            // --- Normalize file objects before processing ---
-            const allFiles = [...mediaFiles, ...pdfFiles].map((file, index) => {
-                if (!file.uri) {
-                    console.error("File at index", index, "is missing a URI:", file);
-                    return null;
-                }
-                const fileName = file.name || file.fileName || `upload-${Date.now()}.${file.type === 'pdf' ? 'pdf' : 'jpg'}`;
-                const fileType = file.type === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg');
+            const newMediaFiles = mediaFiles.filter(file => !file.isExisting);
+            const newPdfFiles = pdfFiles.filter(file => !file.isExisting);
+            const filesToUpload = [...newMediaFiles, ...newPdfFiles];
 
-                return { ...file, name: fileName, type: fileType };
-            }).filter(file => file !== null);
+            let newlyUploadedFileKeys = [];
+            if (filesToUpload.length > 0) {
+                const fileMetadatas = filesToUpload.map(file => ({
+                    fileName: file.name || file.fileName || `upload-${Date.now()}.${file.type === 'pdf' ? 'pdf' : 'jpg'}`,
+                    fileType: file.type === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg'),
+                }));
 
-            const fileMetadatas = allFiles.map(file => ({
-                fileName: file.name,
-                fileType: file.type,
-            }));
-
-            let uploadedFileKeys = [];
-            if (fileMetadatas.length > 0) {
                 const presignedUrlResponse = await fetchDataRef.current({
                     url: GET_PRESIGNED_URL_API_URL,
                     method: 'POST',
@@ -174,7 +222,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
                 }
 
                 const uploadPromises = presignedUrlResponse.urls.map(async (item, index) => {
-                    const fileToUpload = allFiles[index];
+                    const fileToUpload = filesToUpload[index];
                     const blob = await (await fetch(fileToUpload.uri)).blob();
 
                     const response = await fetch(item.uploadUrl, {
@@ -190,7 +238,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
                     return item.fileKey;
                 });
 
-                uploadedFileKeys = await Promise.all(uploadPromises);
+                newlyUploadedFileKeys = await Promise.all(uploadPromises);
             }
 
             const orderData = {
@@ -205,8 +253,22 @@ const CreateOrderScreen = ({ navigation, route }) => {
                 narration: form.narration,
                 priority: form.priority,
                 dynamicFields: form.dynamicFields,
-                uploadedFileKeys: uploadedFileKeys,
+                operation: isEditMode ? 'update' : 'create',
             };
+
+            if (isEditMode) {
+                orderData.orderId = orderDetails.orderInfo.orderId;
+                const retainedFileKeys = mediaFiles
+                    .filter(file => file.isExisting)
+                    .map(file => file.uri);
+                const removedFileKeys = removedMediaFiles.map(file => file.uri);
+
+                orderData.retainedFileKeys = retainedFileKeys;
+                orderData.removedFileKeys = removedFileKeys;
+                orderData.newlyUploadedFileKeys = newlyUploadedFileKeys;
+            } else {
+                orderData.uploadedFileKeys = newlyUploadedFileKeys;
+            }
 
             const createOrderResponse = await fetchDataRef.current({
                 url: CREATE_ORDER_API_URL,
@@ -234,8 +296,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-            {/* Use the new component */}
-            <ProgressHeader title="Create Order" currentStep={2} totalSteps={2} />
+            <ProgressHeader title={isEditMode ? "Edit Order" : "Create Order"} currentStep={2} totalSteps={2} />
             {isLoading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#075E54" />
@@ -254,6 +315,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
                         setMediaFiles={setMediaFiles}
                         pdfFiles={pdfFiles}
                         setPdfFiles={setPdfFiles}
+                        onRemoveMedia={handleRemoveMedia}
                     />
                     <View style={styles.clientDropdownContainer}>
                         <Text style={styles.label}>Select Client <Text style={styles.required}>*</Text></Text>
@@ -279,7 +341,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
             )}
             {!isLoading && !error && (
                 <TouchableOpacity style={[styles.submitButton, submissionLoading && styles.disabledButton]} onPress={handleSubmit} disabled={submissionLoading}>
-                    <Text style={styles.submitButtonText}>Submit</Text>
+                    <Text style={styles.submitButtonText}>{isEditMode ? "Update" : "Submit"}</Text>
                 </TouchableOpacity>
             )}
         </KeyboardAvoidingView>
