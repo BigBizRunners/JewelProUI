@@ -54,6 +54,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
             isRequired: field ? toBoolean(field.required) : false,
             isOrderField: isOrderFields,
             isRepairField: !isOrderFields,
+            validFieldValues: field?.validFieldValues || [],
         });
     }, [field, isOrderFields]);
 
@@ -67,6 +68,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
         isRequired: false,
         isOrderField: isOrderFields,
         isRepairField: !isOrderFields,
+        validFieldValues: [],
     });
     const [apiError, setApiError] = useState('');
     const [saveLoading, setSaveLoading] = useState(false); // New state for save operation loading
@@ -101,6 +103,7 @@ const ManageCategoryFieldsScreen = ({ navigation, route }: any) => {
             isOrderField: fieldData.isOrderField,
             isRepairField: fieldData.isRepairField,
             operation: field ? 'update' : 'add',
+            validFieldValues: fieldData.validFieldValues,
         };
 
         console.log("Saving field with payload:", JSON.stringify(payload));

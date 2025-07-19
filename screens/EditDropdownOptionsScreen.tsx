@@ -92,11 +92,11 @@ const EditDropdownOptionsScreen = ({ navigation, route }) => {
             fieldType: fieldTypeToDisplayName(field.fieldType),
             validFieldValues: options,
             position: field.position || 0,
-            isVisibleInClientOrderForm: field.isVisibleInClientOrderForm || false,
-            isVisibleInKarigarJobCard: field.isVisibleInKarigarJobCard || false,
-            isRequired: field.isRequired || false,
-            isOrderField: isOrderFields || field.isOrderField || false,
-            isRepairField: !isOrderFields || field.isRepairField || false,
+            isVisibleInClientOrderForm: field.visibleInClientOrderForm || false,
+            isVisibleInKarigarJobCard: field.visibleInKarigarJobCard || false,
+            isRequired: field.required || false,
+            isOrderField: isOrderFields,
+            isRepairField: !isOrderFields,
         };
 
         try {
