@@ -1,22 +1,15 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
-import { useNavigation, useRoute, CommonActions } from '@react-navigation/native'; // Import CommonActions
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
+import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing, useAnimatedStyle, interpolate } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 
-const OrderSuccessScreen = () => {
-    const navigation = useNavigation();
-    const route = useRoute();
-    const { orderId } = route.params || {};
-
+const AnimatedCheckmark = () => {
     const progress = useSharedValue(0);
     const checkmarkLength = 100;
-
-    const animatedProps = useAnimatedProps(() => ({
-        strokeDashoffset: checkmarkLength * (1 - progress.value),
-    }));
 
     useEffect(() => {
         progress.value = withTiming(1, {
@@ -25,11 +18,50 @@ const OrderSuccessScreen = () => {
         });
     }, []);
 
+    const animatedProps = useAnimatedProps(() => ({
+        strokeDashoffset: checkmarkLength * (1 - progress.value),
+    }));
+
+    return (
+        <Svg height="120" width="120" viewBox="0 0 52 52">
+            <Path
+                stroke="#075E54"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                strokeDasharray={checkmarkLength}
+                strokeDashoffset={checkmarkLength}
+            />
+            <AnimatedPath
+                stroke="#075E54"
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                fill="none"
+                d="M14.1 27.2l7.1 7.2 16.7-16.8"
+                strokeDasharray={checkmarkLength}
+                animatedProps={animatedProps}
+            />
+        </Svg>
+    );
+};
+
+const OrderSuccessScreen = () => {
+    const navigation = useNavigation();
+    const route = useRoute();
+    const { orderId, isEditMode } = route.params || {};
+
+    const animationProgress = useSharedValue(0);
+
+    useEffect(() => {
+        animationProgress.value = withTiming(1, { duration: 1000, easing: Easing.out(Easing.exp) });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }, []);
+
     const handleViewOrder = () => {
-        // This will reset the navigation stack to show the Orders list,
-        // and then push the OrderDetail screen on top.
-        // NOTE: You must create an 'OrderDetailScreen' and add it to your main
-        // StackNavigator in App.tsx for this to work.
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         navigation.dispatch(
             CommonActions.reset({
                 index: 1,
@@ -42,49 +74,43 @@ const OrderSuccessScreen = () => {
     };
 
     const handleClose = () => {
-        // This resets the entire navigation state, taking the user to the 'Home'
-        // navigator and ensuring the 'Orders' tab is the active one.
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         navigation.dispatch(
             CommonActions.reset({
                 index: 0,
-                routes: [
-                    {
-                        name: 'Home', // This is the name of your BottomTabNavigator in App.tsx
-                        state: {
-                            routes: [{ name: 'Orders' }], // This is the name of the tab in BottomTabNavigator.tsx
-                        },
-                    },
-                ],
+                routes: [{ name: 'Home', state: { routes: [{ name: 'Orders' }] } }],
             })
         );
     };
 
+    const title = isEditMode ? "Order Updated!" : "Order Created!";
+    const subtitle = isEditMode
+        ? "Your order has been successfully updated."
+        : "Your order has been successfully placed.";
+
+    const animatedContainerStyle = useAnimatedStyle(() => ({
+        opacity: animationProgress.value,
+        transform: [{
+            translateY: interpolate(animationProgress.value, [0, 1], [20, 0])
+        }],
+    }));
+
     return (
         <SafeAreaView style={styles.container}>
-            <View style={styles.content}>
-                <Svg height="120" width="120" viewBox="0 0 52 52">
-                    <AnimatedPath
-                        fill="none"
-                        stroke="#075E54"
-                        strokeWidth="3.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M14.1 27.2l7.1 7.2 16.7-16.8"
-                        strokeDasharray={checkmarkLength}
-                        animatedProps={animatedProps}
-                    />
-                </Svg>
-                <Text style={styles.title}>Order Created!</Text>
-                <Text style={styles.subtitle}>Your order has been successfully placed.</Text>
-            </View>
-            <View style={styles.buttonContainer}>
+            <StatusBar barStyle="dark-content" backgroundColor="#F0FDF4" />
+            <Animated.View style={[styles.content, animatedContainerStyle]}>
+                <AnimatedCheckmark />
+                <Text style={styles.title}>{title}</Text>
+                <Text style={styles.subtitle}>{subtitle}</Text>
+            </Animated.View>
+            <Animated.View style={[styles.buttonContainer, animatedContainerStyle]}>
                 <TouchableOpacity style={[styles.button, styles.viewButton]} onPress={handleViewOrder}>
                     <Text style={styles.viewButtonText}>View Order Details</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.button, styles.closeButton]} onPress={handleClose}>
-                    <Text style={styles.closeButtonText}>Close</Text>
+                    <Text style={styles.closeButtonText}>Done</Text>
                 </TouchableOpacity>
-            </View>
+            </Animated.View>
         </SafeAreaView>
     );
 };
@@ -101,41 +127,47 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     title: {
-        fontSize: 28,
+        fontSize: 26,
         fontWeight: 'bold',
-        color: '#333',
-        marginTop: 20,
+        color: '#1E40AF',
+        marginTop: 24,
         marginBottom: 8,
+        textAlign: 'center',
     },
     subtitle: {
         fontSize: 16,
-        color: '#666',
+        color: '#4B5563',
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
     buttonContainer: {
         padding: 20,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
+        paddingBottom: 30,
     },
     button: {
-        borderRadius: 8,
-        paddingVertical: 14,
+        borderRadius: 12,
+        paddingVertical: 16,
         alignItems: 'center',
-        marginBottom: 10,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     viewButton: {
         backgroundColor: '#075E54',
     },
     viewButtonText: {
-        color: '#fff',
+        color: '#FFFFFF',
         fontSize: 16,
         fontWeight: '600',
     },
     closeButton: {
-        backgroundColor: '#f0f0f0',
+        backgroundColor: '#E5E7EB',
     },
     closeButtonText: {
-        color: '#333',
+        color: '#1F2937',
         fontSize: 16,
         fontWeight: '600',
     },

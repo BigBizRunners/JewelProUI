@@ -2,19 +2,21 @@ import React from 'react';
 import { View, Text, TextInput, StyleSheet } from 'react-native';
 
 const WeightRangeInput = ({
-                              label,
-                              required,
-                              from,
-                              to,
-                              onChangeFrom,
-                              onChangeTo,
-                          }: {
-    label: string;
-    required: boolean;
-    from: string;
-    to: string;
-    onChangeFrom: (text: string) => void;
-    onChangeTo: (text: string) => void;
+  label,
+  required,
+  from,
+  to,
+  onChangeFrom,
+  onChangeTo,
+  error,
+}: {
+  label: string;
+  required: boolean;
+  from: string;
+  to: string;
+  onChangeFrom: (text: string) => void;
+  onChangeTo: (text: string) => void;
+  error?: string;
 }) => (
     <View style={styles.container}>
         <Text style={styles.label}>
@@ -38,6 +40,7 @@ const WeightRangeInput = ({
                 keyboardType="numeric"
             />
         </View>
+        {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
 );
 
@@ -68,6 +71,10 @@ const styles = StyleSheet.create({
     },
     inputLeft: {
         marginRight: 10,
+    },
+    errorText: {
+        color: 'red',
+        marginTop: 5,
     },
 });
 

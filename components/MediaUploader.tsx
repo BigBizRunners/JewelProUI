@@ -10,38 +10,23 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import * as DocumentPicker from 'expo-document-picker';
-import { Video } from 'expo-av';
 
 const MAX_MEDIA = 5;
-const MAX_PDFS = 2; // Changed to 2
-const MAX_VIDEO_DURATION = 30; // seconds
 
-const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRemoveMedia }: any) => {
+const MediaUploader = ({ mediaFiles, setMediaFiles, onRemoveMedia, required = false }: any) => {
     const pickMediaFiles = async () => {
         try {
             const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.All,
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsMultipleSelection: true,
                 selectionLimit: MAX_MEDIA - mediaFiles.length,
                 quality: 1,
-                videoMaxDuration: MAX_VIDEO_DURATION,
             });
 
             if (!result.canceled) {
-                const filteredAssets = result.assets.filter(asset =>
-                    asset.type === 'video'
-                        ? asset.duration <= MAX_VIDEO_DURATION
-                        : true
-                );
-
-                if (filteredAssets.length !== result.assets.length) {
-                    Alert.alert('Some videos exceeded 30 seconds and were skipped.');
-                }
-
-                const newFiles = filteredAssets.map(asset => ({
+                const newFiles = result.assets.map(asset => ({
                     ...asset,
-                    type: asset.type === 'video' ? 'video' : asset.type,
+                    type: 'image',
                 }));
 
                 const updatedFiles = [...mediaFiles, ...newFiles].slice(0, MAX_MEDIA);
@@ -53,38 +38,6 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRem
         }
     };
 
-    const pickPdfFile = async () => {
-        try {
-            const res = await DocumentPicker.getDocumentAsync({
-                type: 'application/pdf',
-            });
-
-            console.log('PDF Picker Result:', JSON.stringify(res, null, 2));
-
-            if (!res.canceled && res.assets && res.assets.length > 0) {
-                const asset = res.assets[0];
-                if (pdfFiles.length >= MAX_PDFS) {
-                    Alert.alert('Error', 'Maximum of 2 PDFs can be uploaded.');
-                    return;
-                }
-                const pdfData = {
-                    uri: asset.uri,
-                    name: asset.name || asset.uri.split('/').pop() || 'document.pdf',
-                    type: 'pdf',
-                };
-                setPdfFiles([...pdfFiles, pdfData]);
-                console.log('Added PDF:', pdfData);
-            } else if (res.canceled) {
-                console.log('PDF selection canceled');
-            } else {
-                Alert.alert('Error', 'Failed to select PDF');
-            }
-        } catch (error) {
-            console.error('PDF Picker Error:', error);
-            Alert.alert('Error', 'An error occurred while selecting the PDF');
-        }
-    };
-
     const removeMedia = (uri: string) => {
         if (onRemoveMedia) {
             onRemoveMedia(uri);
@@ -93,23 +46,9 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRem
         }
     };
 
-    const removePdf = (uri: string) => {
-        setPdfFiles(pdfFiles.filter(file => file.uri !== uri));
-    };
-
     const renderMediaItem = ({ item }: any) => (
         <View style={styles.previewItem}>
-            {item.type === 'video' ? (
-                <Video
-                    source={{ uri: item.uri }}
-                    style={styles.previewMedia}
-                    resizeMode="cover"
-                    isMuted
-                    shouldPlay={false}
-                />
-            ) : (
-                <Image source={{ uri: item.uri }} style={styles.previewMedia} />
-            )}
+            <Image source={{ uri: item.uri }} style={styles.previewMedia} />
             <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => removeMedia(item.uri)}
@@ -119,29 +58,10 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRem
         </View>
     );
 
-    const renderPdfItem = ({ item }: any) => (
-        <View style={styles.previewItem}>
-            <View style={styles.previewMedia}>
-                <MaterialCommunityIcons name="file-pdf-box" size={24} color="#075E54" style={styles.pdfIcon} />
-                <Text style={styles.pdfPreviewName} numberOfLines={1}>
-                    {item.name || 'document.pdf'}
-                </Text>
-            </View>
-            <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removePdf(item.uri)}
-            >
-                <MaterialCommunityIcons name="close" size={16} color="#fff" />
-            </TouchableOpacity>
-        </View>
-    );
-
-    const isPdfButtonDisabled = pdfFiles.length >= MAX_PDFS;
-
     return (
         <View style={styles.container}>
             <Text style={styles.label}>
-                Media Files <Text style={styles.required}>*</Text>
+                Media Files {required && <Text style={styles.required}>*</Text>}
             </Text>
             <FlatList
                 data={mediaFiles}
@@ -162,38 +82,6 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, pdfFiles, setPdfFiles, onRem
                     ) : null
                 }
             />
-            <Text style={styles.label}>
-                PDF Files <Text style={styles.required}>*</Text> (Max {MAX_PDFS})
-            </Text>
-            <FlatList
-                data={pdfFiles}
-                horizontal
-                renderItem={renderPdfItem}
-                keyExtractor={(item) => item.uri}
-                style={styles.mediaList}
-                contentContainerStyle={styles.mediaListContent}
-                ListEmptyComponent={() => (
-                    <Text style={styles.emptyText}>No PDFs uploaded</Text>
-                )}
-            />
-            <TouchableOpacity
-                style={[
-                    styles.pdfUploadButton,
-                    isPdfButtonDisabled && styles.pdfUploadButtonDisabled,
-                ]}
-                onPress={pickPdfFile}
-                disabled={isPdfButtonDisabled}
-                activeOpacity={0.7}
-            >
-                <Text
-                    style={[
-                        styles.pdfUploadText,
-                        isPdfButtonDisabled && styles.pdfUploadTextDisabled,
-                    ]}
-                >
-                    Add PDF
-                </Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -232,15 +120,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#fff',
     },
-    pdfIcon: {
-        marginBottom: 5,
-    },
-    pdfPreviewName: {
-        fontSize: 10,
-        color: '#333',
-        textAlign: 'center',
-        paddingHorizontal: 5,
-    },
     addButton: {
         width: 80,
         height: 80,
@@ -259,32 +138,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#075E54',
         borderRadius: 10,
         padding: 5,
-    },
-    pdfUploadButton: {
-        borderWidth: 1,
-        borderColor: '#075E54',
-        borderRadius: 4,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    pdfUploadButtonDisabled: {
-        borderColor: '#999',
-        opacity: 0.5,
-    },
-    pdfUploadText: {
-        color: '#075E54',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    pdfUploadTextDisabled: {
-        color: '#999',
-    },
-    emptyText: {
-        fontSize: 14,
-        color: '#767577',
-        marginVertical: 10,
     },
 });
 

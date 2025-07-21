@@ -79,10 +79,11 @@ const CreateOrderScreen = ({ navigation, route }) => {
         dynamicFields: {},
     });
     const [mediaFiles, setMediaFiles] = useState([]);
-    const [pdfFiles, setPdfFiles] = useState([]);
     const [dynamicFields, setDynamicFields] = useState([]);
     const [initialMediaFiles, setInitialMediaFiles] = useState([]);
     const [removedMediaFiles, setRemovedMediaFiles] = useState([]);
+
+    const [weightError, setWeightError] = useState('');
 
     useEffect(() => {
         fetchDataRef.current = fetchData;
@@ -163,7 +164,22 @@ const CreateOrderScreen = ({ navigation, route }) => {
     );
 
     const handleChange = (key, value) => {
-        setForm((prev) => ({ ...prev, [key]: value }));
+        setForm((prev) => {
+            const newForm = { ...prev, [key]: value };
+
+            // Weight validation
+            if (key === 'weightFrom' || key === 'weightTo') {
+                const from = key === 'weightFrom' ? value : newForm.weightFrom;
+                const to = key === 'weightTo' ? value : newForm.weightTo;
+                if (from && to && parseFloat(to) < parseFloat(from)) {
+                    setWeightError('"To" value cannot be less than "From" value.');
+                } else {
+                    setWeightError('');
+                }
+            }
+
+            return newForm;
+        });
     };
 
     const handleDynamicFieldChange = (fieldId, value) => {
@@ -195,20 +211,23 @@ const CreateOrderScreen = ({ navigation, route }) => {
             Alert.alert('Validation Error', 'Please select a client.');
             return;
         }
+        if (mediaFiles.length === 0) {
+            Alert.alert('Validation Error', 'Please upload at least one media file.');
+            return;
+        }
         // ... (rest of validation)
 
         setSubmissionLoading(true);
 
         try {
             const newMediaFiles = mediaFiles.filter(file => !file.isExisting);
-            const newPdfFiles = pdfFiles.filter(file => !file.isExisting);
-            const filesToUpload = [...newMediaFiles, ...newPdfFiles];
+            const filesToUpload = [...newMediaFiles];
 
             let newlyUploadedFileKeys = [];
             if (filesToUpload.length > 0) {
                 const fileMetadatas = filesToUpload.map(file => ({
-                    fileName: file.name || file.fileName || `upload-${Date.now()}.${file.type === 'pdf' ? 'pdf' : 'jpg'}`,
-                    fileType: file.type === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg'),
+                    fileName: file.name || file.fileName || `upload-${Date.now()}.jpg`,
+                    fileType: file.type || 'image/jpeg',
                 }));
 
                 const presignedUrlResponse = await fetchDataRef.current({
@@ -280,6 +299,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
             if (createOrderResponse?.status === 'success') {
                 navigation.replace('OrderSuccess', {
                     orderId: createOrderResponse.orderId,
+                    isEditMode,
                 });
             } else {
                 throw new Error(createOrderResponse?.errorMessage || 'Order creation failed.');
@@ -313,9 +333,8 @@ const CreateOrderScreen = ({ navigation, route }) => {
                     <MediaUploader
                         mediaFiles={mediaFiles}
                         setMediaFiles={setMediaFiles}
-                        pdfFiles={pdfFiles}
-                        setPdfFiles={setPdfFiles}
                         onRemoveMedia={handleRemoveMedia}
+                        required={true}
                     />
                     <View style={styles.clientDropdownContainer}>
                         <Text style={styles.label}>Select Client <Text style={styles.required}>*</Text></Text>
@@ -332,7 +351,15 @@ const CreateOrderScreen = ({ navigation, route }) => {
                     <DateInput label="Order Date" value={form.orderDate} onChange={(date) => handleChange('orderDate', date)} required />
                     <TextInputField label="Reference No" value={form.referenceNo} onChange={(val) => handleChange('referenceNo', val)} />
                     <QuantityInput value={form.quantity} onChange={(val) => handleChange('quantity', val)} required />
-                    <WeightRangeInput required={true} label="Weight" from={form.weightFrom} to={form.weightTo} onChangeFrom={(val) => handleChange('weightFrom', val)} onChangeTo={(val) => handleChange('weightTo', val)} />
+                    <WeightRangeInput
+                        required={true}
+                        label="Weight"
+                        from={form.weightFrom}
+                        to={form.weightTo}
+                        onChangeFrom={(val) => handleChange('weightFrom', val)}
+                        onChangeTo={(val) => handleChange('weightTo', val)}
+                        error={weightError}
+                    />
                     <DateInput label="Delivery Due Date" value={form.deliveryDueDate} onChange={(date) => handleChange('deliveryDueDate', date)} required />
                     <TextInputField label="Narration" value={form.narration} onChange={(val) => handleChange('narration',val)} multiline />
                     <OptionSelector label="Priority" options={['Customer Order', 'Stock Order']} value={form.priority} onChange={(val) => handleChange('priority', val)} required />
@@ -340,7 +367,7 @@ const CreateOrderScreen = ({ navigation, route }) => {
                 </ScrollView>
             )}
             {!isLoading && !error && (
-                <TouchableOpacity style={[styles.submitButton, submissionLoading && styles.disabledButton]} onPress={handleSubmit} disabled={submissionLoading}>
+                <TouchableOpacity style={[styles.submitButton, (submissionLoading || !!weightError) && styles.disabledButton]} onPress={handleSubmit} disabled={submissionLoading || !!weightError}>
                     <Text style={styles.submitButtonText}>{isEditMode ? "Update" : "Submit"}</Text>
                 </TouchableOpacity>
             )}

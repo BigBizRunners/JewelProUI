@@ -58,6 +58,7 @@ const DynamicFieldRenderer = ({ fields, values, onChange }: any) => {
                     key={field.name}
                     label={field.label}
                     options={field.options}
+                    required={field.required}
                     value={value}
                     onChange={(val: string | string[]) => onChange(field.name, val)}
                     multiSelect={field.multiSelect}
