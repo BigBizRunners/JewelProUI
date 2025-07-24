@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import LoginScreen from './screens/LoginScreen';
 import BottomTabNavigator from './screens/BottomTabNavigator';
 import ResetPasswordScreen from "./screens/ResetPasswordScreen";
@@ -18,23 +19,25 @@ import ManageClientScreen from "./screens/ManageClientScreen";
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
-    const {isAuthenticated } = useAuth();
+    const { isAuthenticated, isAuthLoading } = useAuth();
     const [initialRoute, setInitialRoute] = useState<string | null>(null);
 
     useEffect(() => {
         const checkAuth = async () => {
-            try {
+            if (!isAuthLoading) {
                 const authenticated = await isAuthenticated();
                 setInitialRoute(authenticated ? 'Home' : 'Login');
-            } catch (error) {
-                setInitialRoute('Login');
             }
         };
         checkAuth();
-    }, []);
+    }, [isAuthLoading, isAuthenticated]);
 
-    if (!initialRoute) {
-        return null;
+    if (isAuthLoading || !initialRoute) {
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#075E54" />
+            </View>
+        );
     }
 
     return (
@@ -117,7 +120,7 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="MultiSelectList"
                     component={MultiSelectListScreen}
-                    options={({ route }) => ({
+                    options={({ route }: any) => ({
                         title: route.params.title,
                         headerShown: true,
                         headerStyle: { backgroundColor: '#075E54' },
@@ -128,7 +131,7 @@ const AppNavigator = () => {
                 <Stack.Screen
                     name="ManageClient"
                     component={ManageClientScreen}
-                    options={({ route }) => ({
+                    options={({ route }: any) => ({
                         headerShown: true,
                         headerTitle: route.params?.client ? 'Edit Client' : 'Add Client',
                         headerStyle: { backgroundColor: '#075E54' },
@@ -148,5 +151,14 @@ const App = () => {
         </AuthProvider>
     );
 };
+
+const styles = StyleSheet.create({
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f9f9f9',
+    },
+});
 
 export default App;
