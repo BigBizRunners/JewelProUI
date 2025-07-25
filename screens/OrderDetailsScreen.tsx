@@ -184,6 +184,11 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         setIsImageModalVisible(true);
     };
 
+    const handleDownloadPress = () => {
+        // TODO: Implement PDF download functionality
+        Alert.alert("Download PDF", "This feature is not yet implemented.");
+    };
+
     const handleStatusUpdate = (newStatus) => {
         setIsStatusModalVisible(false);
         changeOrderStatus({
@@ -298,16 +303,32 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 </View>
             </ScrollView>
 
-            {canChangeStatus && (
+            {/* --- Bottom Action Buttons --- */}
+            <View style={styles.bottomActionContainer}>
+                {canChangeStatus && (
+                    <TouchableOpacity
+                        style={[styles.bottomActionButton, styles.changeStatusButton, isActionInProgress ? styles.disabledButton : {}]}
+                        onPress={() => setIsStatusModalVisible(true)}
+                        disabled={isActionInProgress}
+                    >
+                        <MaterialCommunityIcons name="sync" size={20} color="#fff" />
+                        <Text style={styles.bottomActionButtonText}>Change Status</Text>
+                    </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                    style={[styles.changeStatusButton, isActionInProgress ? styles.disabledButton : {}]}
-                    onPress={() => setIsStatusModalVisible(true)}
+                    style={[
+                        styles.bottomActionButton,
+                        styles.downloadButton,
+                        isActionInProgress ? styles.disabledButton : {},
+                        !canChangeStatus && styles.fullWidthButton // Make download full-width if it's the only button
+                    ]}
+                    onPress={handleDownloadPress}
                     disabled={isActionInProgress}
                 >
-                    <MaterialCommunityIcons name="sync" size={22} color="#fff" />
-                    <Text style={styles.changeStatusButtonText}>Change Status</Text>
+                    <MaterialCommunityIcons name="download" size={20} color="#fff" />
+                    <Text style={styles.bottomActionButtonText}>Download PDF</Text>
                 </TouchableOpacity>
-            )}
+            </View>
 
             {/* --- Modal for Full-Screen Image --- */}
             <Modal
@@ -417,32 +438,47 @@ const styles = StyleSheet.create({
     modalContainer: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.85)', justifyContent: 'center', alignItems: 'center' },
     modalImage: { width: '95%', height: '80%' },
     closeButton: { position: 'absolute', top: 40, right: 20, padding: 10 },
-    changeStatusButton: {
+    bottomActionContainer: {
         position: 'absolute',
-        bottom: 30,
-        left: 60,
-        right: 60,
+        bottom: 25,
+        left: 15,
+        right: 15,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#075E54',
+    },
+    bottomActionButton: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
         paddingVertical: 14,
         borderRadius: 30,
+        marginHorizontal: 5,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
         elevation: 5,
     },
+    changeStatusButton: {
+        backgroundColor: '#075E54',
+    },
+    downloadButton: {
+        backgroundColor: '#007BFF',
+    },
+    fullWidthButton: {
+        marginHorizontal: 0, // No horizontal margin when it's the only button
+    },
     disabledButton: {
         backgroundColor: '#A9A9A9',
-        opacity: 0.6,
+        opacity: 0.7,
     },
-    changeStatusButtonText: {
+    bottomActionButtonText: {
         color: '#fff',
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: 'bold',
-        marginLeft: 10,
+        marginLeft: 8,
     },
     statusModalBackdrop: {
         flex: 1,
