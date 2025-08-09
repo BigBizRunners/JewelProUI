@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import useAuthenticatedFetch from '../hooks/useAuthenticatedFetch';
+import * as WebBrowser from 'expo-web-browser';
 
 // --- API URLs ---
 const GET_ORDER_DETAILS_API_URL = process.env.EXPO_PUBLIC_API_URL_GET_ORDER_DETAILS;
@@ -76,6 +77,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
     // State for status change modal
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
 
+
     // --- Action Handlers ---
 
     const handleDeletePress = () => {
@@ -128,6 +130,7 @@ const OrderDetailsScreen = ({ route, navigation }) => {
             ),
         });
     }, [navigation, orderId, isUpdatingStatus, isDeleting, data]);
+
 
     // Initial fetch of order details when the component mounts or orderId changes
     useEffect(() => {
@@ -184,9 +187,13 @@ const OrderDetailsScreen = ({ route, navigation }) => {
         setIsImageModalVisible(true);
     };
 
-    const handleDownloadPress = () => {
-        // TODO: Implement PDF download functionality
-        Alert.alert("Download PDF", "This feature is not yet implemented.");
+    const handlePreviewPress = async () => {
+        const pdfUrl = data?.orderDetails?.orderInfo?.pdfUrl;
+        if (pdfUrl) {
+            await WebBrowser.openBrowserAsync(pdfUrl);
+        } else {
+            Alert.alert("Error", "No PDF URL found for this order.");
+        }
     };
 
     const handleStatusUpdate = (newStatus) => {
@@ -317,16 +324,13 @@ const OrderDetailsScreen = ({ route, navigation }) => {
                 )}
                 <TouchableOpacity
                     style={[
-                        styles.bottomActionButton,
                         styles.downloadButton,
                         isActionInProgress ? styles.disabledButton : {},
-                        !canChangeStatus && styles.fullWidthButton // Make download full-width if it's the only button
                     ]}
-                    onPress={handleDownloadPress}
+                    onPress={handlePreviewPress}
                     disabled={isActionInProgress}
                 >
-                    <MaterialCommunityIcons name="download" size={20} color="#fff" />
-                    <Text style={styles.bottomActionButtonText}>Download PDF</Text>
+                    <MaterialCommunityIcons name="printer" size={24} color="#fff" />
                 </TouchableOpacity>
             </View>
 
@@ -444,7 +448,7 @@ const styles = StyleSheet.create({
         left: 15,
         right: 15,
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
     bottomActionButton: {
@@ -454,7 +458,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 14,
         borderRadius: 30,
-        marginHorizontal: 5,
+        marginRight: 10,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
@@ -465,7 +469,14 @@ const styles = StyleSheet.create({
         backgroundColor: '#075E54',
     },
     downloadButton: {
-        backgroundColor: '#007BFF',
+        padding: 12,
+        borderRadius: 30,
+        backgroundColor: '#075E54',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     fullWidthButton: {
         marginHorizontal: 0, // No horizontal margin when it's the only button

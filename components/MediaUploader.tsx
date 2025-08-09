@@ -7,9 +7,11 @@ import {
     StyleSheet,
     FlatList,
     Alert,
+    ActivityIndicator,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const MAX_MEDIA = 5;
 
@@ -20,23 +22,61 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, onRemoveMedia, required = fa
                 mediaTypes: ImagePicker.MediaTypeOptions.Images,
                 allowsMultipleSelection: true,
                 selectionLimit: MAX_MEDIA - mediaFiles.length,
-                quality: 1,
+                quality: 1, // Start with high quality, will compress next
             });
 
-            if (!result.canceled) {
-                const newFiles = result.assets.map(asset => ({
-                    ...asset,
-                    type: 'image',
-                }));
-
-                const updatedFiles = [...mediaFiles, ...newFiles].slice(0, MAX_MEDIA);
-                setMediaFiles(updatedFiles);
+            if (result.canceled) {
+                return;
             }
+
+            // --- Immediate UI Update with Placeholders ---
+            const newFilesWithPlaceholders = result.assets.map(asset => ({
+                ...asset,
+                type: 'image',
+                compressing: true, // Flag to show loading indicator
+                originalUri: asset.uri, // Keep track of the original URI
+            }));
+
+            const updatedFiles = [...mediaFiles, ...newFilesWithPlaceholders].slice(0, MAX_MEDIA);
+            setMediaFiles(updatedFiles);
+
+            // --- Background Compression ---
+            result.assets.forEach(asset => {
+                compressAndReplace(asset);
+            });
+
         } catch (error) {
             console.error('Media Picker Error:', error);
             Alert.alert('Error', 'Failed to select media files');
         }
     };
+
+    const compressAndReplace = async (asset) => {
+        try {
+            const manipResult = await ImageManipulator.manipulateAsync(
+                asset.uri,
+                [{ resize: { width: 1024 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+
+            // Replace the placeholder with the compressed file
+            setMediaFiles(currentFiles =>
+                currentFiles.map(file =>
+                    file.originalUri === asset.uri
+                        ? { ...file, ...manipResult, uri: manipResult.uri, compressing: false }
+                        : file
+                )
+            );
+        } catch (error) {
+            console.error('Image Manipulation Error:', error);
+            // Optionally remove the file or show an error icon
+            setMediaFiles(currentFiles =>
+                currentFiles.filter(file => file.originalUri !== asset.uri)
+            );
+            Alert.alert('Error', `Failed to process image: ${asset.fileName || 'selected image'}`);
+        }
+    };
+
 
     const removeMedia = (uri: string) => {
         if (onRemoveMedia) {
@@ -49,9 +89,15 @@ const MediaUploader = ({ mediaFiles, setMediaFiles, onRemoveMedia, required = fa
     const renderMediaItem = ({ item }: any) => (
         <View style={styles.previewItem}>
             <Image source={{ uri: item.uri }} style={styles.previewMedia} />
+            {item.compressing && (
+                <View style={styles.loadingOverlay}>
+                    <ActivityIndicator size="small" color="#fff" />
+                </View>
+            )}
             <TouchableOpacity
                 style={styles.removeButton}
                 onPress={() => removeMedia(item.uri)}
+                disabled={item.compressing} // Disable removal while processing
             >
                 <MaterialCommunityIcons name="close" size={16} color="#fff" />
             </TouchableOpacity>
@@ -119,6 +165,17 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#fff',
+    },
+    loadingOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: 80,
+        height: 80,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 4,
     },
     addButton: {
         width: 80,
