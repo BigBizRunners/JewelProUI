@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useAuth } from '../components/AuthContext';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
 

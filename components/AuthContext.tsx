@@ -12,7 +12,7 @@ import {
     CognitoUserSession,
 } from 'amazon-cognito-identity-js';
 import * as SecureStore from 'expo-secure-store';
-import jwtDecode from 'jwt-decode';
+import { jwtDecode } from 'jwt-decode';
 import userPool from '../cognitoConfig';
 
 interface AuthContextType {

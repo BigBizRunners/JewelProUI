@@ -52,15 +52,19 @@ const OrderScreen = ({ navigation }: any) => {
         return { allOrders, pendingOrders };
     };
 
-    const dataForList = useMemo(() => {
+    const sortedOrderStates = useMemo(() => {
         const rawStates = ordersData?.ordersPerState?.ordersPerState || [];
-        const orderStatesWithColor = rawStates.map(state => ({
+        return [...rawStates].sort((a, b) => a.position - b.position);
+    }, [ordersData]);
+
+    const dataForList = useMemo(() => {
+        const orderStatesWithColor = sortedOrderStates.map(state => ({
             ...state,
             id: state.orderStateId,
             color: '#bdbdbd'
         }));
 
-        const { allOrders, pendingOrders } = calculateTotals(rawStates);
+        const { allOrders, pendingOrders } = calculateTotals(sortedOrderStates);
 
         const defaultItems = [
             { id: 'allOrders', orderStateName: 'All Orders', ...allOrders, color: '#28a745' },
@@ -68,10 +72,9 @@ const OrderScreen = ({ navigation }: any) => {
         ];
 
         return [...defaultItems, ...orderStatesWithColor];
-    }, [ordersData]);
+    }, [sortedOrderStates]);
 
     const orderStates = useMemo(() => {
-        const rawStates = ordersData?.ordersPerState?.ordersPerState || [];
         const colors = [
             '#075E54',
             '#4DB6AC',
@@ -86,12 +89,12 @@ const OrderScreen = ({ navigation }: any) => {
             '#AED581',
             '#CE93D8',
             '#FFAB91',];
-        return rawStates.map((state, index) => ({
+        return sortedOrderStates.map((state, index) => ({
             ...state,
             id: state.orderStateId,
             color: colors[index] || '#BDBDBD'
         }));
-    }, [ordersData]);
+    }, [sortedOrderStates]);
 
     const statesForTabs = useMemo(() => {
         const { allOrders, pendingOrders } = calculateTotals(orderStates);
